@@ -1,0 +1,13 @@
+{
+  "name": "mocksmith-example-core-only",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "mocksmith start --config ./mocksmith.config.ts",
+    "smoke": "node ./smoke.mjs"
+  },
+  "dependencies": {
+    "mocksmith": "workspace:*",
+    "ws": "^8.18.0"
+  }
+}

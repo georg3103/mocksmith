@@ -14,30 +14,40 @@ jobs:
         node: ['20', '22']
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm test
+      - run: pnpm run build
 
   smoke:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # basic exercises the full set; core-only asserts the companion packages
+        # are genuinely absent while the server still works.
+        example: [basic, core-only]
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: npm pack --pack-destination /tmp
-      - name: Install the packed package into the example
-        working-directory: examples/basic
-        run: npm install /tmp/mocksmith-*.tgz ws --no-package-lock
-      - name: Run the end-to-end smoke check
-        working-directory: examples/basic
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - name: Pack every package
+        # pnpm pack (not npm pack) replaces the workspace: protocol with real versions
+        run: pnpm -r --filter './packages/*' pack --pack-destination /tmp/tarballs
+      - name: Install only the tarballs this example declares
+        working-directory: examples/${{ matrix.example }}
+        run: node ../../scripts/install-tarballs.mjs /tmp/tarballs
+      - name: Run the smoke check
+        working-directory: examples/${{ matrix.example }}
         run: npm run smoke

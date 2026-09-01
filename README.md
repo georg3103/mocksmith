@@ -2,17 +2,34 @@
 
 A session-aware mock server for front-end development and end-to-end tests.
 
-One server speaks **HTTP/HTTPS, WebSocket, raw TCP/TLS and SSE**, keeps an isolated
-data session per browser or per test, and can be reshaped at runtime — patch the
-data, break an endpoint, apply a scenario, push a websocket event — without a
-restart.
+One server speaks **HTTP/HTTPS, WebSocket, raw TCP/TLS and SSE**, keeps an
+isolated data session per browser or per test, and can be reshaped at runtime —
+patch the data, break an endpoint, apply a scenario, push a websocket event —
+without a restart.
 
 ```bash
 npm install --save-dev mocksmith
 ```
 
-> Not published to npm yet. Until then, install from a git checkout or a local
-> tarball (`npm pack`).
+> Not published to npm yet. Until then, install from a git checkout or local
+> tarballs (`pnpm -r pack`).
+
+## Install what you use
+
+The core is a mock server and nothing else. Everything optional is a separate
+package you opt into, so a project that never writes a scenario never downloads
+one:
+
+| Package | Install it when you want |
+| --- | --- |
+| **`mocksmith`** | the mock server, sessions, endpoint overrides, the config and the CLI |
+| **`@mocksmith/scenarios`** | named, declarative scenarios shared by tests and manual QA |
+| **`@mocksmith/playwright`** | a fixture giving every test its own mock session |
+| **`@mocksmith/vite`** | starting the mock server with the dev server, HMR reload, port allocation |
+| **`@mocksmith/eslint-plugin`** | a lint rule keeping scenario files declarative |
+
+Companion packages plug into the core through a documented
+[plugin API](docs/plugins.md) — the same one your own packages can use.
 
 ## Why
 
@@ -21,8 +38,8 @@ one models **the state of a world** and serves every transport an app talks to
 from that one state:
 
 - **One session, many transports.** A REST call, a websocket subscription and an
-  SSE stream all read the same session data. An HTTP mock can push a message
-  into that session's open sockets.
+  SSE stream read the same session data. An HTTP mock can push a message into
+  that session's open sockets.
 - **Real isolation.** Each browser (cookie) or bearer token gets its own session;
   the Playwright fixture creates one per test, so parallel tests never collide.
 - **Scenarios as data.** A situation ("the feed is slow, then fails") is a
@@ -90,16 +107,30 @@ TypeScript included, no loader registration required.
 
 ## Scenarios
 
+`npm install --save-dev @mocksmith/scenarios`, then register the plugin:
+
+```ts
+import { defineMockerConfig } from 'mocksmith/config';
+import { scenarios } from '@mocksmith/scenarios/plugin';
+
+export default defineMockerConfig({
+  handlers: [handlers],
+  defaultSessionData: session,
+  plugins: [scenarios({ dir: './mocks' })],
+});
+```
+
 A scenario is the starting state plus response overrides. Overrides support a
 status, a body, headers, a delay, a dropped connection, query conditions, and a
 **sequence of responses answered by call number** (the last one repeats):
 
 ```ts
 // degraded.scenario.ts
-import { defineScenario } from 'mocksmith/scenario';
+import { defineScenario } from '@mocksmith/scenarios';
 
 export default defineScenario({
   name: 'Degraded shop',
+  feature: 'Reliability',
   description: 'Items time out once, then keep failing.',
   session: {
     patch: { user: { plan: 'free' } },
@@ -118,8 +149,12 @@ export default defineScenario({
 });
 ```
 
+The plugin adds a `scenario` command group, and scenarios are addressed by name:
+
 ```bash
-npx mocksmith scenario apply ./degraded.scenario.ts
+npx mocksmith scenario list
+npx mocksmith scenario apply "Degraded shop"
+npx mocksmith scenario apply ./one-off.scenario.ts   # a path still works
 npx mocksmith scenario clear
 ```
 
@@ -129,14 +164,12 @@ npx mocksmith scenario clear
 
 ```ts
 import { expect } from '@playwright/test';
-import { applyScenario, mockTest } from 'mocksmith/playwright';
-
-import scenario from './degraded.scenario';
-import session from './session';
+import { mockTest } from '@mocksmith/playwright';
+import { applyScenario } from '@mocksmith/scenarios/playwright';
 
 mockTest('items degrade under load', async ({ page, initMockContext }) => {
   await initMockContext(session);
-  await applyScenario(page, scenario);
+  await applyScenario(page, 'Degraded shop');   // or a scenario object
 
   expect((await page.request.get('/api/items')).status()).toBe(200);
   expect((await page.request.get('/api/items')).status()).toBe(503);
@@ -153,9 +186,8 @@ Start the mock server together with the dev server, reload the browser on
 demand, and hand out non-colliding ports to parallel dev sessions:
 
 ```ts
-// vite.config.ts
 import { defineConfig } from 'vite';
-import { getMockPortsEnv, mockReloadPlugin, startProcessAndWaitPlugin } from 'mocksmith/vite';
+import { getMockPortsEnv, mockReloadPlugin, startProcessAndWaitPlugin } from '@mocksmith/vite';
 
 const env = await getMockPortsEnv();
 
@@ -190,13 +222,15 @@ Everything the CLI does is a `POST` to the server, so any tool can drive it:
 | `/__mocks/api/websockets/state` · `websockets/close` | inspect connections, simulate disconnects |
 | `/__healthcheck` | readiness probe |
 
+Plugins add their own routes here — `@mocksmith/scenarios` contributes
+`scenarios`, `applyScenario` and `clearScenario`.
+
 ## Custom protocols
 
 Two hooks cover binary or otherwise non-JSON transports:
 
 ```ts
 export default defineMockerConfig({
-  // ...
   websocket: {
     encodeMessage: (messages) => encodeMyProtocol(messages),
     echoSubprotocols: ['my-client.native'],
@@ -212,37 +246,11 @@ export default defineMockerConfig({
 Raw TCP/TLS routes share sessions and handlers with the HTTP server, so a native
 client and a browser can talk to the same mocked world.
 
-## Lint rule
+## Writing a plugin
 
-Keep scenario files declarative — imports and scenario definitions only, with
-case constants living next to the test:
-
-```js
-// eslint.config.js
-import mocksmith from 'mocksmith/eslint';
-
-export default [
-  {
-    files: ['**/*.scenario.ts'],
-    plugins: { mocksmith },
-    rules: { 'mocksmith/scenario-file-purity': 'error' },
-  },
-];
-```
-
-## Entry points
-
-| Import | Contents |
-| --- | --- |
-| `mocksmith` | `createMockServer`, `MockContext`, `sessions`, types |
-| `mocksmith/config` | `defineMockerConfig`, `loadMockerConfig`, `startMockerFromConfig` |
-| `mocksmith/scenario` | `defineScenario`, `defineTestScenario`, `loadScenario`, `applyScenarioViaApi` |
-| `mocksmith/playwright` | `mockTest`, `applyScenario` (peer: `@playwright/test`) |
-| `mocksmith/vite` | `startProcessAndWaitPlugin`, `mockReloadPlugin`, `getMockPortsEnv` (peer: `vite`) |
-| `mocksmith/eslint` | `scenario-file-purity` (peer: `eslint`) |
-
-Playwright, Vite and ESLint are optional peers — none of them is pulled in
-unless you import the matching entry point.
+The plugin API is public: a plugin can contribute mock handlers, its own system
+routes, CLI commands, websocket and SSE handlers, and hook into the server
+lifecycle. See [docs/plugins.md](docs/plugins.md).
 
 ## Environment variables
 
@@ -255,15 +263,12 @@ unless you import the matching entry point.
 | `MOCKSMITH_CONFIG` | default `--config` value |
 | `MOCKSMITH_SESSION_ID` | default `--session` value |
 
-## Example
+## Examples
 
-`examples/basic` is a runnable example covering HTTP, websockets, SSE and
-scenarios, with a smoke script that exercises them against the packed package:
-
-```bash
-npm run build && npm pack
-cd examples/basic && npm install ../mocksmith-0.1.0.tgz && npm run smoke
-```
+- [`examples/basic`](examples/basic) — HTTP, websockets, SSE and scenarios, with
+  a smoke script that exercises them end to end.
+- [`examples/core-only`](examples/core-only) — the core alone, asserting that the
+  companion packages are genuinely absent while the server still works.
 
 ## Requirements
 

@@ -12,19 +12,22 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
+          cache: pnpm
           registry-url: https://registry.npmjs.org
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm test
+      - run: pnpm run build
       # Dry run until publishing is approved: drop --dry-run and add NPM_TOKEN
-      # to the repository secrets to publish for real.
-      - name: Publish (dry run)
-        run: npm publish --provenance --access public --dry-run
+      # to the repository secrets to publish for real. pnpm publish rewrites the
+      # workspace: protocol into real version ranges.
+      - name: Publish every package (dry run)
+        run: pnpm -r --filter './packages/*' publish --access public --no-git-checks --dry-run
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
