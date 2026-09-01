@@ -1,12 +1,15 @@
 import log from 'loglevel';
+import { pathToFileURL } from 'node:url';
 
 import { loadMockerConfig } from '../config/loadMockerConfig';
 import { getMockEnv } from '../env';
+import { resolvePlugins } from '../plugin/resolvePlugins';
+import { importModule } from '../utils/importModule';
 import { createCliContext } from './context';
 import { createProgram } from './createProgram';
 import { cliEnvironment } from './env';
 import { normalizeLegacySubcommand } from './normalizeLegacySubcommand';
-import { addScenarioCommands } from './scenarioCommands';
+import { registerPluginCommands } from './registerPluginCommands';
 
 const readOption = (names: string[]) => {
   for (let index = 0; index < process.argv.length; index += 1) {
@@ -60,12 +63,32 @@ log.setLevel(getMockEnv().logLevel);
 const context = createCliContext({ baseUrl, appUrl, sessionId, resolvedConfig, sslEnabled });
 const program = createProgram(context);
 
-addScenarioCommands(program, context);
+// Plugins contribute commands here. Resolving them only imports modules and
+// calls factories — no hook runs, so listing `--help` never starts a server.
+const plugins = resolvedConfig ? await resolvePlugins(resolvedConfig) : [];
+const pluginDefaults = registerPluginCommands(program, plugins, {
+  callApi: context.callApi,
+  sessionId: context.sessionId,
+  getBaseUrl: context.getBaseUrl,
+  appUrl: context.appUrl,
+  reloadApp: context.reloadApp,
+  resolvedConfig,
+  configDirectory: resolvedConfig?.configDirectory,
+  loadModule: <T,>(specifier: string) =>
+    importModule(
+      specifier,
+      resolvedConfig ? pathToFileURL(resolvedConfig.configPath).href : undefined
+    ) as Promise<T>,
+  log,
+});
 
-// Legacy shorthands (`mocksmith endpoint /path --status 500`) are expanded right
-// before parsing, so commands registered above — including plugin ones — are known.
+// Legacy shorthands are expanded right before parsing, once every command —
+// built-in and plugin-contributed — is known.
 normalizeLegacySubcommand(process.argv, 'endpoint', ['clear', 'help', 'list', 'set'], 'set');
-normalizeLegacySubcommand(process.argv, 'scenario', ['apply', 'clear', 'help'], 'apply');
+
+for (const { name, subcommand, known } of pluginDefaults) {
+  normalizeLegacySubcommand(process.argv, name, known, subcommand);
+}
 
 program.parseAsync(process.argv).catch((e) => {
   log.error(e instanceof Error ? e.message : e);

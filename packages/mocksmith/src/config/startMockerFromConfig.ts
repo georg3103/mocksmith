@@ -1,4 +1,5 @@
 import log from 'loglevel';
+import merge from 'lodash.merge';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -6,11 +7,15 @@ import path from 'node:path';
 import { sessions } from '../context/session';
 import { createMockServer } from '../createMockServer';
 import { createRawSocketServer } from '../createRawSocketServer';
+import { createPluginHost } from '../plugin/createPluginHost';
+import { mergeSystemHandlers } from '../plugin/mergeSystemHandlers';
+import { resolvePlugins } from '../plugin/resolvePlugins';
+import { systemHandlers } from '../systemHandlers';
 import { setWebsocketMessageEncoder, type WebsocketMessageEncoder } from '../websocketEncoder';
 import { loadConfigResource } from './loadConfigResource';
 import { configResourceValidation } from './resourceValidators';
 
-import type { MockHandlers, MocksAPI, RewritePath, SseHandler } from '../types';
+import type { MockFunction, MockHandlers, MocksAPI, RewritePath, SseHandler } from '../types';
 import type {
   ConfigResourceValidator,
   MockerConfigResource,
@@ -21,6 +26,24 @@ import type {
 } from './types';
 
 const { validators } = configResourceValidation;
+
+let startCount = 0;
+
+/**
+ * The session registry and the websocket encoder are module singletons, so a
+ * second server in the same process quietly reconfigures the first one.
+ * */
+const warnOnSecondStart = () => {
+  startCount += 1;
+
+  if (startCount > 1) {
+    log.warn(
+      'startMockerFromConfig was called more than once in this process. ' +
+        'mocksmith keeps sessions in a module-level registry, so servers share state — ' +
+        'run one mock server per process.'
+    );
+  }
+};
 
 const resolveResource = async <T>(
   configDirectory: string,
@@ -44,6 +67,12 @@ export const startMockerFromConfig = async (
   if (rawSocketsEnabled && !config.rawSockets) {
     throw new Error('Raw sockets require rawSockets.routes in the config');
   }
+
+  warnOnSecondStart();
+
+  const host_ = createPluginHost(await resolvePlugins(resolved, options), resolved, options);
+
+  await host_.callConfig();
 
   const handlerSources = await Promise.all(
     config.handlers.map((resource, index) =>
@@ -98,6 +127,22 @@ export const startMockerFromConfig = async (
 
   setWebsocketMessageEncoder(encodeMessage);
 
+  const registries = await host_.callSetup({
+    handlers,
+    sseHandlers: [...(sseHandlers ?? [])],
+    websockets: [...(websockets ?? [])],
+  });
+  const allSystemHandlers = mergeSystemHandlers(
+    systemHandlers as unknown as Record<string, MockFunction>,
+    registries.systemHandlers
+  );
+
+  host_.setSystemHandlerTable(allSystemHandlers);
+
+  if (Object.keys(registries.sessionDataPatch).length) {
+    merge(defaultSessionData, registries.sessionDataPatch);
+  }
+
   sessions.setCookieName(config.session?.cookieName);
   const defaultSessionId = config.defaultSessionId ?? 'default';
 
@@ -138,21 +183,28 @@ export const startMockerFromConfig = async (
     host,
     port,
     protocol,
-    handlers,
-    websockets,
+    handlers: registries.handlers,
+    websockets: registries.websockets.length ? registries.websockets : undefined,
     websocketOptions: config.websocket?.echoSubprotocols
       ? { echoSubprotocols: config.websocket.echoSubprotocols }
       : undefined,
-    sseHandlers,
+    extraSystemHandlers: registries.systemHandlers,
+    sseHandlers: registries.sseHandlers.length ? registries.sseHandlers : undefined,
     sslOptions,
     rewritePath,
   });
 
-  if (rawSocketsEnabled && config.rawSockets) {
-    if (!mockServer.listening) {
-      await once(mockServer, 'listening');
-    }
+  if (!mockServer.listening) {
+    await once(mockServer, 'listening');
+  }
 
+  await host_.callServerStarted(mockServer, { host, port, protocol });
+
+  mockServer.once('close', () => {
+    void host_.dispose();
+  });
+
+  if (rawSocketsEnabled && config.rawSockets) {
     try {
       const rawSocketHandler = await resolveResource<MockerRawSocketHandler>(
         configDirectory,
@@ -166,7 +218,7 @@ export const startMockerFromConfig = async (
         throw new Error(`Default session "${defaultSessionId}" was not created`);
       }
 
-      initialContext.setHandlers(handlers);
+      initialContext.setHandlers(registries.handlers);
 
       const rawSocketServer = await createRawSocketServer({
         greeting: config.rawSockets.greetingHex

@@ -95,7 +95,11 @@ export type ReqFunction = (
 
 export type MockFunctionIncomingParams<R extends MocksRequestPayload> = {
   context: MockContext;
-  request: IncomingMessage;
+  /**
+   * The incoming request, absent when the handler is invoked in-process rather
+   * than from a real HTTP request (plugins calling the system API).
+   * */
+  request?: IncomingMessage;
   name: string;
   requestData: RequestData<R>;
 };

@@ -20,6 +20,50 @@
         "minLength": 1
       }
     },
+    "plugins": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "use"
+            ],
+            "properties": {
+              "use": {
+                "type": "string",
+                "minLength": 1
+              },
+              "options": {},
+              "enabled": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "pluginDiscovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "auto": {
+          "type": "boolean"
+        },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
     "defaultSessionData": {
       "type": "string",
       "minLength": 1

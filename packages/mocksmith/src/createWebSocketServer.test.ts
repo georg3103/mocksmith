@@ -139,3 +139,33 @@ describe('createWebSocketServer session matching', () => {
     await once(server, 'close');
   });
 });
+
+describe('websocket upgrades without a matching route', () => {
+  test('closes the socket instead of leaving the client hanging', async () => {
+    sessions.createSession({}, 'default');
+
+    const server = createMockServer({
+      handlers: {},
+      host: '127.0.0.1',
+      port: 0,
+      protocol: 'http',
+      websockets: [{ path: '/known', sessionFromMessage: false, handler: () => undefined }],
+    });
+
+    await once(server, 'listening');
+
+    const port = (server.address() as AddressInfo).port;
+    const socket = new WebSocket(`ws://127.0.0.1:${port}/unknown`);
+    const error = await Promise.race([
+      once(socket, 'error').then(() => 'closed'),
+      once(socket, 'open').then(() => 'opened'),
+      new Promise((resolve) => setTimeout(() => resolve('hung'), 2000)),
+    ]);
+
+    expect(error).toBe('closed');
+
+    socket.close();
+    server.close();
+    await once(server, 'close');
+  });
+});

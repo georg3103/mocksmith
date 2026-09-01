@@ -8,6 +8,7 @@ export default defineConfig({
     index: 'src/index.ts',
     client: 'src/client.ts',
     config: 'src/config/index.ts',
+    plugin: 'src/plugin/index.ts',
     cli: 'src/cli/index.ts',
   },
   async onSuccess() {

@@ -48,6 +48,10 @@
       "types": "./dist/config.d.ts",
       "import": "./dist/config.js"
     },
+    "./plugin": {
+      "types": "./dist/plugin.d.ts",
+      "import": "./dist/plugin.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

@@ -1,9 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { importModule } from '../utils/importModule';
 
 import type { SessionTokens } from '../context/session';
+import type { MockerPluginDiscovery, MockerPluginEntry } from '../plugin/types';
 import { configResourceValidation } from './resourceValidators';
 
 import type { ConfigResourceValidator, MockerConfig, ResolvedMockerConfig } from './types';
@@ -176,6 +178,66 @@ const readRawSockets = (value: unknown, allowInline: boolean): MockerConfig['raw
   } as MockerConfig['rawSockets'];
 };
 
+/**
+ * A plugin entry is either a module specifier, a { use, options } record, or —
+ * outside JSON configs — an inline plugin object or factory.
+ * */
+const readPlugins = (value: unknown, allowInline: boolean): MockerPluginEntry[] => {
+  if (!Array.isArray(value)) {
+    throw new Error('plugins must be an array');
+  }
+
+  return value.map((entry, index) => {
+    const field = `plugins[${index}]`;
+
+    if (typeof entry === 'string' && entry.trim()) {
+      return entry;
+    }
+
+    if (isRecord(entry) && typeof entry.use === 'string' && entry.use.trim()) {
+      return {
+        use: entry.use,
+        options: entry.options,
+        enabled: entry.enabled !== false,
+      };
+    }
+
+    if (allowInline && typeof entry === 'function') {
+      return entry as MockerPluginEntry;
+    }
+
+    if (allowInline && isRecord(entry) && typeof entry.name === 'string' && entry.name.trim()) {
+      return entry as unknown as MockerPluginEntry;
+    }
+
+    throw new Error(
+      `${field} must be a module specifier, { use, options } or an inline plugin`
+    );
+  });
+};
+
+const readPluginDiscovery = (value: unknown): MockerPluginDiscovery => {
+  if (!isRecord(value)) {
+    throw new Error('pluginDiscovery must be an object');
+  }
+
+  if (value.auto !== undefined && typeof value.auto !== 'boolean') {
+    throw new Error('pluginDiscovery.auto must be a boolean');
+  }
+
+  if (
+    value.patterns !== undefined &&
+    (!Array.isArray(value.patterns) || value.patterns.some((p) => typeof p !== 'string'))
+  ) {
+    throw new Error('pluginDiscovery.patterns must be an array of strings');
+  }
+
+  return {
+    ...(value.auto !== undefined && { auto: value.auto }),
+    ...(value.patterns !== undefined && { patterns: value.patterns as string[] }),
+  };
+};
+
 const parseConfig = (value: unknown, allowInline: boolean): MockerConfig => {
   if (!isRecord(value)) {
     throw new Error('The config must export an object');
@@ -256,6 +318,10 @@ const parseConfig = (value: unknown, allowInline: boolean): MockerConfig => {
         validators.sseHandlers
       ),
     }),
+    ...(value.plugins !== undefined && { plugins: readPlugins(value.plugins, allowInline) }),
+    ...(value.pluginDiscovery !== undefined && {
+      pluginDiscovery: readPluginDiscovery(value.pluginDiscovery),
+    }),
     ...(parsedServer && { server: parsedServer }),
     ...(isRecord(websocket) && {
       websocket: {
@@ -314,7 +380,7 @@ export const loadMockerConfig = async (
     if (extension === '.json') {
       rawConfig = JSON.parse(await readFile(configPath, 'utf8')) as unknown;
     } else {
-      const module = await importModule(configPath);
+      const module = await importModule(configPath, pathToFileURL(configPath).href);
 
       if (!('default' in module)) {
         throw new Error('the config module must have a default export');

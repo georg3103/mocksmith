@@ -6,6 +6,7 @@ import type { SessionTokens } from '../context/session';
 import type { SocketConnection } from '../socketConnection';
 
 import type { MockHandlers, MocksAPI, RewritePath, SseHandler } from '../types';
+import type { MockerPluginDiscovery, MockerPluginEntry } from '../plugin/types';
 import type { WebsocketMessageEncoder } from '../websocketEncoder';
 
 export type MockerProtocol = 'http' | 'https';
@@ -60,6 +61,13 @@ export type MockerConfig = {
   defaultSessionData: MockerConfigResource<object>;
   defaultSessionId?: string;
   handlers: MockerConfigResource<MockHandlers<MocksAPI>>[];
+  /**
+   * Plugins to load: an inline plugin or factory, a module specifier
+   * ('@mocksmith/scenarios/plugin', './my-plugin.ts'), or { use, options }.
+   * */
+  plugins?: MockerPluginEntry[];
+  /** Opt-in discovery of plugins among the project's dependencies. */
+  pluginDiscovery?: MockerPluginDiscovery;
   rawSockets?: MockerRawSocketsConfig;
   rewritePath?: MockerConfigResource<RewritePath>;
   session?: {

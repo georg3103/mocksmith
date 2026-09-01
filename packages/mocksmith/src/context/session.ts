@@ -11,6 +11,13 @@ export type SessionId = string;
 // Reserved id of the default session: never expires
 export const DEFAULT_SESSION_ID = 'default';
 
+// Reserved id of the internal session serving the /__mocks/api routes
+export const SYSTEM_SESSION_ID = 'system';
+
+export type SessionCreatedMeta = { isDefault: boolean; isSystem: boolean };
+
+export type SessionCreatedListener = (context: MockContext, meta: SessionCreatedMeta) => void;
+
 export type SessionTokenType = 'access' | 'authorization' | 'refresh';
 
 export type SessionTokens = Partial<Record<SessionTokenType, string>>;
@@ -23,6 +30,8 @@ class MockSessions {
   private tokens: Map<string, SessionId> = new Map();
 
   private sessionTokens: Map<SessionId, SessionTokens> = new Map();
+
+  private sessionListeners: Set<SessionCreatedListener> = new Set();
 
   private sessionKeySequence = 0n;
 
@@ -70,7 +79,46 @@ class MockSessions {
     log.info(`➕ Session created = ${sessionId}`);
     log.debug(mockParams);
 
+    this.notifySessionCreated(context, sessionId);
+
     return sessionId;
+  }
+
+  /**
+   * Notifies listeners that a session appeared — including the per-test ones a
+   * test fixture creates. Listeners run synchronously because createSession is
+   * synchronous and sits on the hot path of every test; a failing listener is
+   * logged rather than allowed to break session creation.
+   * */
+  public onSessionCreated(listener: SessionCreatedListener) {
+    this.sessionListeners.add(listener);
+
+    return () => {
+      this.sessionListeners.delete(listener);
+    };
+  }
+
+  public listIds() {
+    return [...this.contexts.keys()];
+  }
+
+  private notifySessionCreated(context: MockContext, sessionId: SessionId) {
+    if (!this.sessionListeners.size) {
+      return;
+    }
+
+    const meta = {
+      isDefault: sessionId === this.defaultSessionId,
+      isSystem: sessionId === SYSTEM_SESSION_ID,
+    };
+
+    for (const listener of this.sessionListeners) {
+      try {
+        listener(context, meta);
+      } catch (error) {
+        log.warn(`Session listener failed for "${sessionId}"`, error);
+      }
+    }
   }
 
   public setCookieName(cookieName?: string) {

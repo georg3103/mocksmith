@@ -5,14 +5,15 @@ import { IncomingMessage } from 'node:http';
 import type { TLSSocket } from 'node:tls';
 
 import { MockContext } from './context/context';
-import { sessions } from './context/session';
+import { sessions, SYSTEM_SESSION_ID } from './context/session';
 import { createWebSocketServer, CreateWebSocketServerOptions } from './createWebSocketServer';
 import { getMockEnv } from './env';
+import { mergeSystemHandlers } from './plugin/mergeSystemHandlers';
 import { requestHandler } from './proxyHandlers/requestHandler';
 import { systemHandlers } from './systemHandlers';
 
 import type { MockServerRuntimeOptions } from './config/types';
-import { MockHandlers, MocksAPI, RewritePath, SseHandler, SslOptions } from './types';
+import { MockFunction, MockHandlers, MocksAPI, RewritePath, SseHandler, SslOptions } from './types';
 
 log.setLevel(getMockEnv().logLevel);
 
@@ -28,6 +29,8 @@ type MockServerOptions<M extends MocksAPI> = MockServerRuntimeOptions & {
   handlers: MockHandlers<M>;
   websockets?: MockServerOptionsWebsockets;
   websocketOptions?: CreateWebSocketServerOptions;
+  /** Extra /__mocks/api routes contributed by plugins. Built-ins win. */
+  extraSystemHandlers?: Record<string, MockFunction>;
   sseHandlers?: SseHandler[];
   defaultContext?: MockContext;
   sslOptions?: SslOptions | (() => SslOptions);
@@ -42,10 +45,16 @@ export const createMockServer = <M extends MocksAPI>({
   handlers,
   websockets,
   websocketOptions,
+  extraSystemHandlers,
   sseHandlers,
   sslOptions,
   rewritePath,
 }: MockServerOptions<M>) => {
+  const allSystemHandlers = mergeSystemHandlers(
+    systemHandlers as unknown as Record<string, MockFunction>,
+    extraSystemHandlers
+  );
+
   const requestListener = (req: IncomingMessage, res: http.ServerResponse) => {
     if (req?.url?.startsWith('/__healthcheck')) {
       res.statusCode = 200;
@@ -55,19 +64,19 @@ export const createMockServer = <M extends MocksAPI>({
 
     // system API
     if (req?.url?.startsWith('/__mocks')) {
-      let context = sessions.getById('system');
+      let context = sessions.getById(SYSTEM_SESSION_ID);
 
       if (!context) {
-        sessions.createSession({}, 'system');
+        sessions.createSession({}, SYSTEM_SESSION_ID);
 
-        context = sessions.getById('system');
+        context = sessions.getById(SYSTEM_SESSION_ID);
       }
 
       if (!context) {
         return;
       }
 
-      context.setHandlers(systemHandlers as unknown as MockHandlers<MocksAPI>);
+      context.setHandlers(allSystemHandlers as unknown as MockHandlers<MocksAPI>);
 
       requestHandler(context, req, res);
 
@@ -135,62 +144,69 @@ export const createMockServer = <M extends MocksAPI>({
         requestListener
       );
 
-  if (websockets?.length) {
-    server.on('upgrade', function upgrade(request, socket, head) {
-      const requestUrl = request.url;
+  // Registered unconditionally so routes added later (by a plugin) still work.
+  // With a listener attached Node no longer closes unhandled upgrades for us,
+  // so every path that does not end in a handshake must destroy the socket —
+  // otherwise the client hangs until it times out.
+  const wsRoutes: MockServerOptionsWebsockets = websockets ?? [];
 
-      if (!requestUrl) {
-        return;
-      }
+  server.on('upgrade', function upgrade(request, socket, head) {
+    const requestUrl = request.url;
 
-      let matched = websockets.find((websocket) => websocket.path === requestUrl);
+    if (!requestUrl || !wsRoutes.length) {
+      socket.destroy();
 
-      // Clients connecting to a path with no registered handler fall back to
-      // the first registered one when websocketFallback is enabled.
-      if (!matched && websocketFallback && websockets.length) {
-        log.debug(
-          `[WS upgrade] no exact match for "${requestUrl}" — falling back to "${websockets[0].path}"`
-        );
+      return;
+    }
 
-        matched = websockets[0];
-      }
+    let matched = wsRoutes.find((websocket) => websocket.path === requestUrl);
 
-      const context = matched?.sessionFromMessage
-        ? sessions.getDefaultSession()
-        : sessions.getByRequestOrDefault(request);
+    // Clients connecting to a path with no registered handler fall back to
+    // the first registered one when websocketFallback is enabled.
+    if (!matched && websocketFallback) {
+      log.debug(
+        `[WS upgrade] no exact match for "${requestUrl}" — falling back to "${wsRoutes[0].path}"`
+      );
 
-      if (!context) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
-        socket.destroy();
+      matched = wsRoutes[0];
+    }
 
-        return;
-      }
+    if (!matched) {
+      log.debug(`[WS upgrade] no route for "${requestUrl}" — closing`);
+      socket.destroy();
 
-      context.setHandlers(handlers);
+      return;
+    }
 
-      log.debug(`[WS upgrade] requestUrl = "${requestUrl}"`);
+    const context = matched.sessionFromMessage
+      ? sessions.getDefaultSession()
+      : sessions.getByRequestOrDefault(request);
 
-      if (matched) {
-        const wsServer = createWebSocketServer(
-          context,
-          request,
-          matched.handler as WebSocketHandler,
-          matched.sessionFromMessage,
-          websocketOptions
-        );
+    if (!context) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+      socket.destroy();
 
-        wsServer.handleUpgrade(request, socket, head, function done(ws) {
-          log.debug(
-            `[WS handshake done] "${requestUrl}" protocol="${ws.protocol}" — 101 sent`
-          );
+      return;
+    }
 
-          wsServer.emit('connection', ws, request);
-        });
-      }
+    context.setHandlers(handlers);
 
-      return websockets;
+    log.debug(`[WS upgrade] requestUrl = "${requestUrl}"`);
+
+    const wsServer = createWebSocketServer(
+      context,
+      request,
+      matched.handler as WebSocketHandler,
+      matched.sessionFromMessage,
+      websocketOptions
+    );
+
+    wsServer.handleUpgrade(request, socket, head, function done(ws) {
+      log.debug(`[WS handshake done] "${requestUrl}" protocol="${ws.protocol}" — 101 sent`);
+
+      wsServer.emit('connection', ws, request);
     });
-  }
+  });
 
   server.on('connection', (socket) => {
     log.debug(`[TCP] connection from ${socket.remoteAddress}:${socket.remotePort}`);
