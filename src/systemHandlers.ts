@@ -252,7 +252,6 @@ export const systemHandlers = {
   '/__mocks/api/setOverride': setOverrideHandler,
   '/__mocks/api/clearOverride': clearOverrideHandler,
   '/__mocks/api/getOverrides': getOverridesHandler,
-  '/__mocks/api/addHandler': () => {},
   '/__mocks/api/sendToWebsocket': sendToWebsocketHandler,
   '/__mocks/api/websockets/state': websocketStateHandler,
   '/__mocks/api/websockets/close': websocketCloseHandler,
