@@ -1,7 +1,6 @@
 import { APIRequestContext } from '@playwright/test';
 
-import { MockApiBase } from '../context/context';
-import type { SessionTokenType } from '../context/session';
+import type { MockApiBase, SessionTokenType } from 'mocksmith/client';
 import { getMockBackendUri } from './getMockBackendUri';
 
 export const requestCreateMockContext = async (

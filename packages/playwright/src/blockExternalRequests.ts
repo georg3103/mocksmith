@@ -1,6 +1,6 @@
 import type { BrowserContext } from '@playwright/test';
 
-import { getImageStub } from '../utils/getImageStub';
+import { getImageStub } from 'mocksmith/client';
 
 // Matching at the pattern level avoids funnelling every request through route.continue()
 const externalUrlPattern =

@@ -1,12 +1,11 @@
 import { test } from '@playwright/test';
 import log from 'loglevel';
 
-import { MockApiBase } from '../context/context';
+import type { MockApiBase } from 'mocksmith/client';
 import { blockExternalRequests } from './blockExternalRequests';
 import { requestClearMockContext } from './requestClearMockContext';
 import { requestCreateMockContext } from './requestCreateMockContext';
 
-export { applyScenario } from './applyScenario';
 export { blockExternalRequests } from './blockExternalRequests';
 export { requestCreateMockContext } from './requestCreateMockContext';
 export { requestClearMockContext } from './requestClearMockContext';

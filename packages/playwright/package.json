@@ -1,0 +1,56 @@
+{
+  "name": "@mocksmith/playwright",
+  "version": "0.2.0",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "author": "George Mkrtchyan",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/georg3103/mocksmith.git",
+    "directory": "packages/playwright"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "Playwright fixture for mocksmith: an isolated mock session per test, with external requests blocked.",
+  "keywords": [
+    "mocksmith",
+    "playwright",
+    "e2e",
+    "mock",
+    "testing",
+    "fixture"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "loglevel": "^1.9.2"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.40.0",
+    "mocksmith": "workspace:^"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0",
+    "mocksmith": "workspace:*"
+  }
+}
