@@ -269,6 +269,13 @@ cd examples/basic && npm install ../mocksmith-0.1.0.tgz && npm run smoke
 
 Node.js 20.19 or newer. ESM only.
 
+## Provenance
+
+Extracted and generalised from an internal mock server used to develop and test
+several production front-ends. All domain-specific protocol code, reference data
+and endpoint fixtures were left behind; what remains is the transport-agnostic
+engine.
+
 ## License
 
 MIT
