@@ -7,7 +7,7 @@ import type { TLSSocket } from 'node:tls';
 import { MockContext } from './context/context';
 import { sessions, SYSTEM_SESSION_ID } from './context/session';
 import { createWebSocketServer, CreateWebSocketServerOptions } from './createWebSocketServer';
-import { getMockEnv } from './env';
+import { DEFAULT_MOCK_BACKEND_PORT, getMockEnv } from './env';
 import { mergeSystemHandlers } from './plugin/mergeSystemHandlers';
 import { requestHandler } from './proxyHandlers/requestHandler';
 import { systemHandlers } from './systemHandlers';
@@ -39,7 +39,7 @@ type MockServerOptions<M extends MocksAPI> = MockServerRuntimeOptions & {
 
 export const createMockServer = <M extends MocksAPI>({
   host,
-  port = getMockEnv().backendPort,
+  port = getMockEnv().port ?? DEFAULT_MOCK_BACKEND_PORT,
   protocol,
   websocketFallback = false,
   handlers,

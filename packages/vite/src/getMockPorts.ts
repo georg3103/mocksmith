@@ -245,14 +245,32 @@ const monitorReservation = (reservation: Reservation) => {
   timerId.unref();
 };
 
+export type GetMockPortsOptions = {
+  /**
+   * Scheme for the returned URIs. Both the mock server and the Vite dev server
+   * speak http unless you configure TLS, so http is the default — a URI that
+   * claims https makes the healthcheck open a TLS handshake against a plain
+   * HTTP port, which never succeeds.
+   * */
+  protocol?: 'http' | 'https';
+  /** Hostname for the returned URIs. Keep it the same everywhere: cookies treat
+   * `localhost` and `127.0.0.1` as different hosts, and the Playwright fixture
+   * binds its session cookie to the app's host. */
+  host?: string;
+};
+
 /**
  * Reserves a free (app, mock backend) port pair for a dev session and returns
  * the environment variables describing it. Reservations live in a lock-guarded
  * registry in the OS temp dir, so parallel dev servers never collide.
  * Returns the preferred ports as is under CI or when already resolved.
  * */
-export const getMockPortsEnv = async (): Promise<Record<string, string>> => {
-  const shouldDetectPorts = !process.env.CI && process.env.MOCK_PORTS_RESOLVED !== 'true';
+export const getMockPortsEnv = async ({
+  protocol = 'http',
+  host = 'localhost',
+}: GetMockPortsOptions = {}): Promise<Record<string, string>> => {
+  const shouldDetectPorts =
+    !process.env.CI && process.env.MOCKSMITH_PORTS_RESOLVED !== 'true';
   const preferredAppPort =
     Number(process.env.PORT) || getUriPort(process.env.MOCKSMITH_APP_URI) || DEFAULT_APP_PORT;
   const preferredBackendPort =
@@ -272,10 +290,10 @@ export const getMockPortsEnv = async (): Promise<Record<string, string>> => {
   }
 
   return {
-    MOCK_PORTS_RESOLVED: 'true',
+    MOCKSMITH_PORTS_RESOLVED: 'true',
     PORT: String(appPort),
     MOCKSMITH_PORT: String(backendPort),
-    MOCKSMITH_URI: `https://localhost:${backendPort}`,
-    MOCKSMITH_APP_URI: `https://localhost:${appPort}`,
+    MOCKSMITH_URI: `${protocol}://${host}:${backendPort}`,
+    MOCKSMITH_APP_URI: `${protocol}://${host}:${appPort}`,
   };
 };

@@ -5,36 +5,42 @@ import type { MockApiBase } from 'mocksmith/client';
 import { blockExternalRequests } from './blockExternalRequests';
 import { requestClearMockContext } from './requestClearMockContext';
 import { requestCreateMockContext } from './requestCreateMockContext';
+import { rememberSessionCookieName } from './sessionCookie';
 
 export { blockExternalRequests } from './blockExternalRequests';
 export { requestCreateMockContext } from './requestCreateMockContext';
 export { requestClearMockContext } from './requestClearMockContext';
 export { getMockBackendUri } from './getMockBackendUri';
+export { getSessionCookieName, readSessionId } from './sessionCookie';
 
 /**
  * Base Playwright test wired to the mock server: each test gets an isolated
  * mock session (cookie-bound), external requests are blocked.
+ *
+ * The built-in `context` fixture is reused rather than replaced, so tracing,
+ * video, screenshots and the project's own context options keep working.
  * */
 export const mockTest = test.extend<{
-  forEachTest: void;
   initMockContext: (mocksApi: MockApiBase) => Promise<void>;
 }>({
-  context: async ({ browser }, Use, testInfo) => {
-    const timezoneId = testInfo.project?.use?.timezoneId;
-
-    const context = await browser.newContext({ timezoneId });
-
+  context: async ({ context }, use) => {
     await blockExternalRequests(context);
 
-    await Use(context);
-    await context.close();
+    await use(context);
   },
   initMockContext: [
     async ({ context, baseURL }, use) => {
-      let mockContextId;
+      let mockContextId: string | undefined;
 
       // the call binds the browser context to the mock session via a cookie
       await use(async function initMocksContext(mocksAPI: MockApiBase) {
+        if (!baseURL) {
+          throw new Error(
+            'initMockContext needs `use.baseURL` in your Playwright config: the mock ' +
+              'session cookie is bound to the app origin.'
+          );
+        }
+
         const testInfo = test.info();
 
         const session = await requestCreateMockContext(
@@ -44,6 +50,7 @@ export const mockTest = test.extend<{
         );
 
         mockContextId = session.id;
+        rememberSessionCookieName(context, session.cookieName);
 
         await context.addCookies([
           { name: session.cookieName, value: mockContextId, url: baseURL },

@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { sessions } from '../context/session';
+import { DEFAULT_MOCK_BACKEND_PORT, getMockEnv } from '../env';
 import { createMockServer } from '../createMockServer';
 import { createRawSocketServer } from '../createRawSocketServer';
 import { createPluginHost } from '../plugin/createPluginHost';
@@ -177,8 +178,11 @@ export const startMockerFromConfig = async (
     throw new Error('HTTPS/TLS requires ssl.key and ssl.cert in the config');
   }
 
-  const host = options.host ?? config.server?.host ?? '127.0.0.1';
-  const port = options.port ?? config.server?.port ?? 3001;
+  // CLI flag, then the config, then the environment (which is how the Vite
+  // plugin hands over the port pair it reserved), then the default.
+  const environment = getMockEnv();
+  const host = options.host ?? config.server?.host ?? environment.host ?? '127.0.0.1';
+  const port = options.port ?? config.server?.port ?? environment.port ?? DEFAULT_MOCK_BACKEND_PORT;
   const mockServer = createMockServer({
     host,
     port,

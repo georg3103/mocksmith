@@ -1,5 +1,4 @@
-import { getMockBackendUri } from '@mocksmith/playwright';
-import { CONTEXT_COOKIE_NAME } from 'mocksmith/client';
+import { getMockBackendUri, readSessionId } from '@mocksmith/playwright';
 import type { Page } from '@playwright/test';
 
 import { applyScenarioViaApi } from './applyScenarioViaApi';
@@ -16,8 +15,9 @@ export async function applyScenario(
   page: Page,
   scenario: TestScenario | string
 ): Promise<void> {
-  const cookies = await page.context().cookies();
-  const id = cookies.find((cookie) => cookie.name === CONTEXT_COOKIE_NAME)?.value;
+  // The cookie name is configurable, so it is read back from the fixture
+  // rather than assumed to be the default.
+  const id = await readSessionId(page.context());
 
   if (!id) {
     throw new Error('applyScenario: no mock session cookie — initMockContext must run first');

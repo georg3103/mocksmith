@@ -161,8 +161,13 @@ const discoverPlugins = async (
       continue;
     }
 
+    // The manifest points at a subpath ('./plugin'), which has to be turned
+    // into a specifier the package's own exports map accepts — importing the
+    // package root instead would land on a module that exports no plugin.
+    const specifier = entry === '.' ? name : `${name}/${entry.replace(/^\.?\//, '')}`;
+
     try {
-      found.push(await instantiate(name, env));
+      found.push(await instantiate(specifier, env));
     } catch (error) {
       log.warn(`Skipping discovered plugin "${name}": ${(error as Error).message}`);
     }

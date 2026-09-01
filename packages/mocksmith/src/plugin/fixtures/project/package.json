@@ -1,0 +1,9 @@
+{
+  "name": "discovery-fixture-project",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "mocksmith-plugin-fake": "1.0.0",
+    "not-a-plugin": "1.0.0"
+  }
+}
