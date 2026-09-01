@@ -32,7 +32,7 @@ export default [
     },
   },
   {
-    files: ['**/*.test.ts', 'packages/*/test/**/*.ts', 'examples/**/*'],
+    files: ['**/*.test.ts', 'packages/*/test/**/*.ts', 'examples/**/*', 'scripts/**/*'],
     languageOptions: {
       globals: { ...globals.node, ...globals.vitest },
     },
