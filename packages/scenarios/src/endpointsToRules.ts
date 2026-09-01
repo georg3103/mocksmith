@@ -1,4 +1,4 @@
-import type { OverrideListEntry, OverrideRule } from '../types';
+import type { OverrideListEntry, OverrideRule } from 'mocksmith/client';
 import type { ScenarioEndpoint } from './types';
 
 /**

@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
-import { applyScenario, mockTest } from 'mocksmith/playwright';
+import { mockTest } from '@mocksmith/playwright';
+import { applyScenario } from '@mocksmith/scenarios/playwright';
 
 import scenario from './degraded.scenario';
 import session from './session';

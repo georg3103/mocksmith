@@ -1,4 +1,4 @@
-import { defineScenario } from 'mocksmith/scenario';
+import { defineScenario } from '@mocksmith/scenarios';
 
 /**
  * "The shop is having a bad day": the profile downgrades to the free plan,

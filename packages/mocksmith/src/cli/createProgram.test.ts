@@ -3,7 +3,7 @@ import type { Command } from 'commander';
 import { createCliContext } from './context';
 import { createProgram } from './createProgram';
 import { normalizeLegacySubcommand } from './normalizeLegacySubcommand';
-import { addScenarioCommands } from './scenarioCommands';
+import { registerPluginCommands } from './registerPluginCommands';
 
 const silentLogger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
 
@@ -58,21 +58,52 @@ describe('CLI command tree', () => {
     ]);
   });
 
-  test('scenario commands add exactly their own subtree', () => {
-    const withoutScenarios = describeTree(createProgram(buildContext()));
+  test('a plugin contributes exactly its own subtree', () => {
+    const baseline = describeTree(createProgram(buildContext()));
     const program = createProgram(buildContext());
+    const ctx = buildContext();
 
-    addScenarioCommands(program, buildContext());
+    const defaults = registerPluginCommands(
+      program,
+      [
+        {
+          name: 'demo',
+          cli: [
+            {
+              name: 'demo',
+              description: 'demo group',
+              defaultSubcommand: 'run',
+              commands: [
+                { name: 'run', args: [{ name: 'target', required: true }], action: () => {} },
+                { name: 'list', action: () => {} },
+              ],
+            },
+          ],
+        },
+      ],
+      { ...ctx, getBaseUrl: ctx.getBaseUrl, loadModule: (async () => ({})) as never }
+    );
 
-    const added = describeTree(program).filter((name) => !withoutScenarios.includes(name));
+    const added = describeTree(program).filter((name) => !baseline.includes(name));
 
-    expect(added.sort()).toEqual([
-      'scenario',
-      'scenario apply',
-      'scenario clear',
-      'scenario-apply',
-      'scenario-clear',
-    ]);
+    expect(added.sort()).toEqual(['demo', 'demo list', 'demo run']);
+    expect(defaults).toEqual([{ name: 'demo', subcommand: 'run', known: ['run', 'list', 'help'] }]);
+  });
+
+  test('refuses a plugin command that collides with a built-in one', () => {
+    const program = createProgram(buildContext());
+    const warnings: unknown[] = [];
+    const ctx = buildContext();
+
+    registerPluginCommands(program, [{ name: 'clash', cli: [{ name: 'session' }] }], {
+      ...ctx,
+      getBaseUrl: ctx.getBaseUrl,
+      loadModule: (async () => ({})) as never,
+      log: { ...silentLogger, warn: (...args: unknown[]) => warnings.push(args) },
+    });
+
+    expect(warnings).toHaveLength(1);
+    expect(describeTree(program).filter((name) => name === 'session')).toHaveLength(1);
   });
 
   test('core commands carry their options', () => {

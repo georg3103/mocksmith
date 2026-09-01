@@ -56,12 +56,22 @@ importers:
 
   examples/basic:
     dependencies:
+      '@mocksmith/playwright':
+        specifier: workspace:*
+        version: link:../../packages/playwright
+      '@mocksmith/scenarios':
+        specifier: workspace:*
+        version: link:../../packages/scenarios
       mocksmith:
-        specifier: file:../..
-        version: 'mocksmith-workspace@file:'
+        specifier: workspace:*
+        version: link:../../packages/mocksmith
       ws:
-        specifier: ^8.21.3
+        specifier: ^8.18.0
         version: 8.21.3
+    devDependencies:
+      '@playwright/test':
+        specifier: ^1.49.0
+        version: 1.62.1
 
   packages/eslint-plugin:
     devDependencies:
@@ -118,6 +128,28 @@ importers:
         specifier: ^1.9.2
         version: 1.9.2
     devDependencies:
+      '@playwright/test':
+        specifier: ^1.49.0
+        version: 1.62.1
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      mocksmith:
+        specifier: workspace:*
+        version: link:../mocksmith
+
+  packages/scenarios:
+    dependencies:
+      jiti:
+        specifier: ^2.4.2
+        version: 2.7.0
+      tinyglobby:
+        specifier: ^0.2.10
+        version: 0.2.17
+    devDependencies:
+      '@mocksmith/playwright':
+        specifier: workspace:*
+        version: link:../playwright
       '@playwright/test':
         specifier: ^1.49.0
         version: 1.62.1
@@ -1492,10 +1524,6 @@ packages:
 
   mlly@1.8.2:
     resolution: {integrity: sha512-d+ObxMQFmbt10sretNDytwt85VrbkhhUA/JBGm1MPaWJ65Cl4wOgLaB1NYvJSZ0Ef03MMEU/0xpPMXUIQ29UfA==}
-
-  'mocksmith-workspace@file:':
-    resolution: {directory: '', type: directory}
-    engines: {node: '>=20.19'}
 
   mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
@@ -3208,8 +3236,6 @@ snapshots:
       pathe: 2.0.3
       pkg-types: 1.3.1
       ufo: 1.6.4
-
-  'mocksmith-workspace@file:': {}
 
   mri@1.2.0: {}
 

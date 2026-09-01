@@ -8,7 +8,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocket } from 'ws';
 
 import { loadMockerConfig, startMockerFromConfig } from 'mocksmith/config';
-import { applyScenarioViaApi, loadScenario } from 'mocksmith/scenario';
+import { applyScenarioViaApi } from '@mocksmith/scenarios';
+import { loadScenario } from '@mocksmith/scenarios/plugin';
 
 const BASE = 'http://127.0.0.1:3101';
 

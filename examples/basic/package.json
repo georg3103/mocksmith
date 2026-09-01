@@ -7,7 +7,12 @@
     "smoke": "node ./smoke.mjs"
   },
   "dependencies": {
-    "mocksmith": "file:../..",
-    "ws": "^8.21.3"
+    "mocksmith": "workspace:*",
+    "@mocksmith/scenarios": "workspace:*",
+    "@mocksmith/playwright": "workspace:*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
   }
 }

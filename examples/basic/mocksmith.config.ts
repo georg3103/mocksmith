@@ -1,4 +1,5 @@
 import { defineMockerConfig } from 'mocksmith/config';
+import { scenarios } from '@mocksmith/scenarios/plugin';
 
 import handlers from './handlers';
 import session from './session';
@@ -11,5 +12,6 @@ export default defineMockerConfig({
   defaultSessionData: session,
   websocketHandlers,
   sseHandlers,
+  plugins: [scenarios({ dir: '.' })],
   client: { sessionId: 'default' },
 });

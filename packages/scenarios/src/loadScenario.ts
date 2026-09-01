@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { importModule } from '../utils/importModule';
+import { importModule } from './importModule';
 import { validateEndpoints } from './validateEndpoints';
 
 import type { Scenario } from './types';

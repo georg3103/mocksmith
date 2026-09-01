@@ -14,6 +14,20 @@ export { getImageStub, getImageStubUrl } from './utils/getImageStub';
 
 export { findHandlerKey } from './utils/findHandlerKey';
 
+export { CONTEXT_COOKIE_NAME, getContextIdFromCookie } from './utils/getContextFromCookie';
+
+export {
+  definePlugin,
+  PLUGIN_API_VERSION,
+  type MocksmithPlugin,
+  type MocksmithPluginFactory,
+  type PluginCliCommand,
+  type PluginCliContext,
+  type PluginServerContext,
+  type PluginSessionContext,
+  type PluginSetupContext,
+} from './plugin';
+
 export {
   setWebsocketMessageEncoder,
   type WebsocketMessageEncoder,
@@ -37,5 +51,3 @@ export type {
   OverrideListEntry,
 } from './types';
 export type { MockerProtocol, MockServerRuntimeOptions } from './config/types';
-
-export * from './scenario';

@@ -1,6 +1,4 @@
-import type { MockApiBase } from '../context/context';
-
-import type { OverrideResponse, OverrideRule } from '../types';
+import type { MockApiBase, OverrideResponse, OverrideRule } from 'mocksmith/client';
 
 export type ScenarioEndpoint = OverrideRule & {
   path: string;

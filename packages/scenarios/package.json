@@ -1,0 +1,79 @@
+{
+  "name": "@mocksmith/scenarios",
+  "version": "0.2.0",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "author": "George Mkrtchyan",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/georg3103/mocksmith.git",
+    "directory": "packages/scenarios"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "Named, declarative scenarios for mocksmith: a session patch plus endpoint overrides, appliable from the CLI, tests or code.",
+  "keywords": [
+    "mocksmith",
+    "mock",
+    "scenario",
+    "testing",
+    "e2e",
+    "plugin"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./plugin": {
+      "types": "./dist/plugin.d.ts",
+      "import": "./dist/plugin.js"
+    },
+    "./playwright": {
+      "types": "./dist/playwright.d.ts",
+      "import": "./dist/playwright.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "mocksmith": {
+    "plugin": "./dist/plugin.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jiti": "^2.4.2",
+    "tinyglobby": "^0.2.10"
+  },
+  "peerDependencies": {
+    "mocksmith": "workspace:^",
+    "@mocksmith/playwright": "workspace:^",
+    "@playwright/test": ">=1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "@mocksmith/playwright": {
+      "optional": true
+    },
+    "@playwright/test": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@mocksmith/playwright": "workspace:*",
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0",
+    "mocksmith": "workspace:*"
+  }
+}
