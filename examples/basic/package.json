@@ -1,0 +1,13 @@
+{
+  "name": "mocksmith-example-basic",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "mocksmith start --config ./mocksmith.config.ts",
+    "smoke": "node ./smoke.mjs"
+  },
+  "dependencies": {
+    "mocksmith": "file:../..",
+    "ws": "^8.21.3"
+  }
+}

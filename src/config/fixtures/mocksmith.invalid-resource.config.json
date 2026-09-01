@@ -1,0 +1,4 @@
+{
+  "handlers": ["./invalid-handlers.mjs"],
+  "defaultSessionData": "./session.json"
+}

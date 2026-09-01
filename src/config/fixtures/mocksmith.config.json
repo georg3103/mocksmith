@@ -1,0 +1,13 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 3101,
+    "rawSockets": true,
+    "ssl": true
+  },
+  "handlers": ["./handlers.json"],
+  "defaultSessionData": "./session.json",
+  "client": {
+    "sessionId": "json-session"
+  }
+}

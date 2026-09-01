@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/georg3103/mocksmith/main/mocksmith.schema.json",
+  "title": "mocksmith configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "handlers",
+    "defaultSessionData"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "handlers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "defaultSessionData": {
+      "type": "string",
+      "minLength": 1
+    },
+    "defaultSessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "websocketHandlers": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sseHandlers": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rawSockets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "handler",
+        "routes"
+      ],
+      "properties": {
+        "handler": {
+          "type": "string",
+          "minLength": 1
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1
+        },
+        "greetingHex": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-fA-F]{2})+$"
+        },
+        "routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "port"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "secure": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "tls": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxVersion": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cookieName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tokens": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "access": {
+              "type": "string",
+              "minLength": 1
+            },
+            "authorization": {
+              "type": "string",
+              "minLength": 1
+            },
+            "refresh": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "rawSockets": {
+          "type": "boolean"
+        },
+        "ssl": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ssl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "cert"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cert": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "appUrl": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "rewritePath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "websocket": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "echoSubprotocols": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "encodeMessage": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

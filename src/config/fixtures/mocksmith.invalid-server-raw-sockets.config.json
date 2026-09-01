@@ -1,0 +1,5 @@
+{
+  "server": { "rawSockets": "yes" },
+  "handlers": ["./handlers.json"],
+  "defaultSessionData": "./session.json"
+}
