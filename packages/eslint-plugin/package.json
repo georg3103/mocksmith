@@ -1,0 +1,53 @@
+{
+  "name": "@mocksmith/eslint-plugin",
+  "version": "0.2.0",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "author": "George Mkrtchyan",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/georg3103/mocksmith.git",
+    "directory": "packages/eslint-plugin"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "ESLint rules for mocksmith scenario files.",
+  "keywords": [
+    "mocksmith",
+    "eslint",
+    "eslintplugin",
+    "eslint-plugin",
+    "mock",
+    "testing"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "eslint": ">=9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0"
+  }
+}

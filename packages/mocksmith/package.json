@@ -1,0 +1,79 @@
+{
+  "name": "mocksmith",
+  "version": "0.2.0",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "author": "George Mkrtchyan",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/georg3103/mocksmith.git",
+    "directory": "packages/mocksmith"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "A session-aware mock server for HTTP, WebSocket, raw TCP/TLS and SSE, with declarative scenarios, a runtime control API, a Playwright fixture and Vite integration.",
+  "keywords": [
+    "mock",
+    "mock-server",
+    "testing",
+    "playwright",
+    "vite",
+    "websocket",
+    "sse",
+    "api-mocking",
+    "e2e"
+  ],
+  "homepage": "https://github.com/georg3103/mocksmith#readme",
+  "bugs": {
+    "url": "https://github.com/georg3103/mocksmith/issues"
+  },
+  "bin": {
+    "mocksmith": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "import": "./dist/config.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "mocksmith.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "jiti": "^2.4.2",
+    "lodash.merge": "^4.6.2",
+    "loglevel": "^1.9.2",
+    "parse-multipart-data": "^1.5.0",
+    "path-to-regexp": "^8.2.0",
+    "picocolors": "^1.1.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/lodash.merge": "^4.6.9",
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.18.1"
+  }
+}

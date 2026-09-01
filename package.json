@@ -1,104 +1,19 @@
 {
-  "name": "mocksmith",
-  "version": "0.1.0",
+  "name": "mocksmith-workspace",
+  "private": true,
   "type": "module",
-  "sideEffects": false,
-  "description": "A session-aware mock server for HTTP, WebSocket, raw TCP/TLS and SSE, with declarative scenarios, a runtime control API, a Playwright fixture and Vite integration.",
-  "keywords": [
-    "mock",
-    "mock-server",
-    "testing",
-    "playwright",
-    "vite",
-    "websocket",
-    "sse",
-    "api-mocking",
-    "e2e"
-  ],
   "license": "MIT",
-  "author": "George Mkrtchyan",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/georg3103/mocksmith.git"
-  },
-  "homepage": "https://github.com/georg3103/mocksmith#readme",
-  "bugs": {
-    "url": "https://github.com/georg3103/mocksmith/issues"
-  },
   "engines": {
     "node": ">=20.19"
   },
-  "bin": {
-    "mocksmith": "./dist/cli.js"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./scenario": {
-      "types": "./dist/scenario.d.ts",
-      "import": "./dist/scenario.js"
-    },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "import": "./dist/config.js"
-    },
-    "./playwright": {
-      "types": "./dist/playwright.d.ts",
-      "import": "./dist/playwright.js"
-    },
-    "./vite": {
-      "types": "./dist/vite.d.ts",
-      "import": "./dist/vite.js"
-    },
-    "./eslint": {
-      "types": "./dist/eslint.d.ts",
-      "import": "./dist/eslint.js"
-    },
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "dist",
-    "mocksmith.schema.json",
-    "README.md",
-    "LICENSE"
-  ],
   "scripts": {
-    "build": "tsup",
+    "build": "pnpm -r --filter './packages/*' build",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "prepublishOnly": "npm run build && npm run test"
-  },
-  "dependencies": {
-    "commander": "^12.1.0",
-    "detect-port": "^1.6.1",
-    "jiti": "^2.4.2",
-    "lodash.merge": "^4.6.2",
-    "loglevel": "^1.9.2",
-    "parse-multipart-data": "^1.5.0",
-    "path-to-regexp": "^8.2.0",
-    "picocolors": "^1.1.1",
-    "ws": "^8.18.0"
-  },
-  "peerDependencies": {
-    "@playwright/test": ">=1.40.0",
-    "eslint": ">=9.0.0",
-    "vite": ">=5.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@playwright/test": {
-      "optional": true
-    },
-    "eslint": {
-      "optional": true
-    },
-    "vite": {
-      "optional": true
-    }
+    "release": "changeset publish"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -114,6 +29,8 @@
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
     "vite": "^6.0.0",
-    "vitest": "^2.1.8"
-  }
+    "vitest": "^2.1.8",
+    "@changesets/cli": "^2.27.10"
+  },
+  "packageManager": "pnpm@10.32.1"
 }

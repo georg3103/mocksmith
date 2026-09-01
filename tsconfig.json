@@ -1,23 +1,14 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2023"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "types": ["node", "vitest/globals"],
-    "strict": true,
-    "noImplicitAny": true,
-    "noUncheckedIndexedAccess": false,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": false,
-    "declaration": true,
-    "noEmit": true
-  },
-  "include": ["src/**/*.ts", "tsup.config.ts", "vitest.config.ts", "eslint.config.js"],
-  "exclude": ["dist", "node_modules", "examples", "src/config/fixtures"]
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/test/**/*.ts",
+    "*.ts",
+    "eslint.config.js"
+  ],
+  "exclude": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "packages/mocksmith/src/config/fixtures"
+  ]
 }

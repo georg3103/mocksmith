@@ -1,25 +1,14 @@
 import { defineConfig } from 'tsup';
 
+import { tsupBase } from '../../tsup.base';
+
 export default defineConfig({
+  ...tsupBase,
   entry: {
     index: 'src/index.ts',
-    scenario: 'src/scenario/index.ts',
+    client: 'src/client.ts',
     config: 'src/config/index.ts',
-    playwright: 'src/playwright/index.ts',
-    vite: 'src/vite/index.ts',
-    eslint: 'src/eslint/index.ts',
     cli: 'src/cli/index.ts',
-  },
-  format: ['esm'],
-  target: 'node20',
-  platform: 'node',
-  dts: true,
-  clean: true,
-  sourcemap: true,
-  splitting: true,
-  banner: ({ format }) => (format === 'esm' ? { js: '' } : {}),
-  esbuildOptions(options) {
-    options.banner = { js: '' };
   },
   async onSuccess() {
     const { chmod, readFile, writeFile } = await import('node:fs/promises');

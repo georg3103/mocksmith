@@ -5,7 +5,7 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', 'examples/**/node_modules/**', 'coverage/**'],
+    ignores: ['**/dist/**', '**/node_modules/**', 'coverage/**'],
   },
   js.configs.recommended,
   {
@@ -32,7 +32,7 @@ export default [
     },
   },
   {
-    files: ['src/**/*.test.ts', 'test/**/*.ts', 'examples/**/*'],
+    files: ['**/*.test.ts', 'packages/*/test/**/*.ts', 'examples/**/*'],
     languageOptions: {
       globals: { ...globals.node, ...globals.vitest },
     },
