@@ -186,28 +186,45 @@ Start the mock server together with the dev server, reload the browser on
 demand, and hand out non-colliding ports to parallel dev sessions:
 
 ```ts
-import { defineConfig } from 'vite';
+// vite.config.ts
 import { getMockPortsEnv, mockReloadPlugin, startProcessAndWaitPlugin } from '@mocksmith/vite';
+import { defineConfig } from 'vite';
 
 const env = await getMockPortsEnv();
 
 export default defineConfig({
-  server: { port: Number(env.PORT) },
   plugins: [
     startProcessAndWaitPlugin({
       name: 'mocksmith',
       command: 'npx',
-      args: ['mocksmith', 'start', '--config', './mocksmith.config.ts'],
+      args: [
+        'mocksmith', 'start',
+        '--config', './mocksmith.config.ts',
+        '--host', 'localhost',
+        '--port', env.MOCKSMITH_PORT,
+      ],
       healthcheckUrl: `${env.MOCKSMITH_URI}/__healthcheck`,
       env,
     }),
     mockReloadPlugin(),
   ],
+  server: {
+    port: Number(env.PORT),
+    strictPort: true,
+    // Same origin for the app and the mocks: the session cookie travels, and
+    // no CORS is involved (the mock server sends no CORS headers).
+    proxy: {
+      '/api': env.MOCKSMITH_URI,
+      '/sse': env.MOCKSMITH_URI,
+      '/ws': { target: env.MOCKSMITH_URI, ws: true },
+    },
+  },
 });
 ```
 
 `mockReloadPlugin` is what makes `mocksmith reload` (and `scenario apply`)
-refresh the open browser.
+refresh the open browser. A full working setup lives in
+[`examples/vite-app`](examples/vite-app).
 
 ## Runtime API
 
@@ -261,6 +278,8 @@ lifecycle. See [docs/plugins.md](docs/plugins.md).
 | `MOCKSMITH_APP_URI` | app URI used by `reload` |
 | `MOCKSMITH_LOG_LEVEL` | `trace` … `error` (default `info`) |
 | `MOCKSMITH_CONFIG` | default `--config` value |
+| `MOCKSMITH_HOST` | host to bind to when the config names none |
+| `MOCKSMITH_PORTS_RESOLVED` | set by `getMockPortsEnv` so a child process does not reserve ports again |
 | `MOCKSMITH_SESSION_ID` | default `--session` value |
 
 ## Examples
@@ -269,6 +288,9 @@ lifecycle. See [docs/plugins.md](docs/plugins.md).
   a smoke script that exercises them end to end.
 - [`examples/core-only`](examples/core-only) — the core alone, asserting that the
   companion packages are genuinely absent while the server still works.
+- [`examples/vite-app`](examples/vite-app) — a React app where one command
+  starts the dev server and the mocks, scenarios change what the page shows,
+  and Playwright drives it in a browser.
 
 ## Requirements
 

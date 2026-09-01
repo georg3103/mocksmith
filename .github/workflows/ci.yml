@@ -51,3 +51,28 @@ jobs:
       - name: Run the smoke check
         working-directory: examples/${{ matrix.example }}
         run: npm run smoke
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - name: Install the browser
+        run: pnpm --filter mocksmith-example-vite-app exec playwright install --with-deps chromium
+      - name: Run the browser tests
+        working-directory: examples/vite-app
+        # Ports are fixed here: under CI getMockPortsEnv passes the preferred
+        # ports through instead of reserving a pair, so the dev server, the mock
+        # server and baseURL have to agree on them up front.
+        run: pnpm test:e2e
+        env:
+          PORT: '3200'
+          MOCKSMITH_PORT: '3201'
+          # CI has no Google Chrome, so use the chromium installed above.
+          PLAYWRIGHT_CHANNEL: chromium

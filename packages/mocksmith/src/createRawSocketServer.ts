@@ -52,7 +52,7 @@ class RawSocketConnection extends EventEmitter implements SocketConnection {
     return SOCKET_OPEN;
   }
 
-  public send(data: Buffer, callback?: (error?: Error) => void) {
+  public send(data: Buffer | string, callback?: (error?: Error) => void) {
     if (this.readyState !== SOCKET_OPEN) {
       callback?.(new Error('Raw socket is already closed'));
 

@@ -1,0 +1,25 @@
+{
+  "name": "mocksmith-example-vite-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "mocksmith": "workspace:*",
+    "@mocksmith/scenarios": "workspace:*",
+    "@mocksmith/playwright": "workspace:*",
+    "@mocksmith/vite": "workspace:*",
+    "@playwright/test": "^1.49.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.0"
+  }
+}

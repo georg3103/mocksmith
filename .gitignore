@@ -7,3 +7,4 @@ test-results/
 playwright-report/
 examples/**/package-lock.json
 *.tgz
+test-results/

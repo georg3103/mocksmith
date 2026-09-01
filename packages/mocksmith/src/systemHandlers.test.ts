@@ -139,6 +139,6 @@ describe('system websocket handlers', () => {
         },
       },
     });
-    expect(socket.send).toHaveBeenCalledWith(expect.any(Buffer), expect.any(Function));
+    expect(socket.send).toHaveBeenCalledWith(expect.any(String), expect.any(Function));
   });
 });
