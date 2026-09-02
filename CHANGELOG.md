@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/georg3103/mocksmith/compare/v0.3.1...v0.3.2) (2026-09-02)
+
+
+### Bug Fixes
+
+* install the example tarballs into an empty tree ([631b8cd](https://github.com/georg3103/mocksmith/commit/631b8cd8c945d2b5c972e0d0ed17b53a225f3f92))
+
 ## [0.3.1](https://github.com/georg3103/mocksmith/compare/v0.3.0...v0.3.1) (2026-09-02)
 
 
