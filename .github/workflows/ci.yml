@@ -63,6 +63,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+      - name: Typecheck the demo against the built packages
+        run: pnpm --filter mocksmith-example-vite-app run typecheck
       - name: Install the browser
         run: pnpm --filter mocksmith-example-vite-app exec playwright install --with-deps chromium
       - name: Run the browser tests

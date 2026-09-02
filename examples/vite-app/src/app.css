@@ -1,0 +1,409 @@
+/*
+ * Steel and ember: a cool graphite ground with one warm accent. No web fonts
+ * on purpose — the Playwright fixture blocks external requests, so a demo that
+ * pulled a font from a CDN would render differently under test.
+ */
+:root {
+  --paper: #eceff2;
+  --surface: #ffffff;
+  --ink: #14181c;
+  --muted: #5d6873;
+  --line: #dbe1e7;
+  --accent: #b2521c;
+  --accent-ink: #ffffff;
+  --live: #1c6b48;
+  --down: #a6322f;
+  --radius: 10px;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #101418;
+    --surface: #171d23;
+    --ink: #e6edf3;
+    --muted: #94a2ae;
+    --line: #26303a;
+    --accent: #e0763b;
+    --accent-ink: #17110c;
+    --live: #4cae82;
+    --down: #e0736e;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin: 0 auto;
+  max-width: 640px;
+  padding: 40px 20px 64px;
+}
+
+.masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.masthead h1 {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  margin: 2px 0 0;
+  text-wrap: balance;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.who {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+
+.plan {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 2px 9px;
+  text-transform: uppercase;
+}
+
+.plan--pro {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-ink);
+}
+
+/* Transports ------------------------------------------------------------- */
+
+.transports {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.transport {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  padding: 12px 14px;
+}
+
+.transport h2 {
+  display: inline;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.transport p {
+  color: var(--muted);
+  margin: 6px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dot {
+  border-radius: 50%;
+  display: inline-block;
+  height: 8px;
+  margin-right: 8px;
+  width: 8px;
+}
+
+.dot--live {
+  background: var(--live);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 22%, transparent);
+}
+
+.dot--waiting {
+  background: var(--muted);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.dot--down {
+  background: var(--down);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--down) 22%, transparent);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot--waiting {
+    animation: none;
+  }
+}
+
+/* Board ------------------------------------------------------------------ */
+
+.board {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.composer {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: inherit;
+  flex: 1;
+  font: inherit;
+  padding: 9px 12px;
+}
+
+.input:focus-visible,
+.button:focus-visible,
+.remove:focus-visible,
+.check input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.button {
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--accent-ink);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 9px 18px;
+}
+
+.button[disabled] {
+  cursor: progress;
+  opacity: 0.55;
+}
+
+.button--ghost {
+  background: transparent;
+  border-color: var(--line);
+  color: inherit;
+  font-weight: 500;
+  padding: 6px 12px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.row {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 2px;
+}
+
+.row--done span {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.check {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+}
+
+.check input {
+  accent-color: var(--accent);
+  height: 16px;
+  width: 16px;
+}
+
+.remove {
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 8px;
+}
+
+.remove:hover {
+  color: var(--down);
+}
+
+.tally {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 12px 0 0;
+}
+
+.note {
+  color: var(--muted);
+  margin: 14px 0 0;
+}
+
+.note--bad {
+  border: 1px solid color-mix(in srgb, var(--down) 40%, var(--line));
+  border-radius: 8px;
+  color: var(--down);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.note--bad p {
+  margin: 0;
+}
+
+/* Event log -------------------------------------------------------------- */
+
+.log {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px 16px;
+}
+
+.log h2 {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
+.log ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.log li {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto 40px 1fr;
+}
+
+.log li:first-child .what {
+  color: var(--ink);
+}
+
+.when {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.what {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag {
+  border: 1px solid currentcolor;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 1px 0;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.tag--http {
+  color: var(--muted);
+}
+
+.tag--ws {
+  color: var(--accent);
+}
+
+.tag--sse {
+  color: var(--live);
+}
+
+/* Hints ------------------------------------------------------------------ */
+
+.hints {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.hints ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  margin: 10px 0 0;
+  overflow-x: auto;
+  padding: 0;
+}
+
+.hints li {
+  white-space: pre;
+}
+
+@media (max-width: 560px) {
+  .transports {
+    grid-template-columns: 1fr;
+  }
+
+  .masthead {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}

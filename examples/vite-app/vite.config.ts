@@ -7,6 +7,11 @@ import { defineConfig } from 'vite';
 const env = await getMockPortsEnv();
 
 export default defineConfig({
+  // The mock server's port is reserved at startup, so the page cannot hardcode
+  // it — the hints it prints need the real one to be copy-pasteable.
+  define: {
+    'import.meta.env.VITE_MOCKSMITH_URI': JSON.stringify(env.MOCKSMITH_URI),
+  },
   plugins: [
     react(),
     startProcessAndWaitPlugin({
