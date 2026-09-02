@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "e2e", "*.ts"]
+  "include": ["src", "e2e", "plugins", "*.ts"]
 }

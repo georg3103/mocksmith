@@ -82,5 +82,7 @@ jobs:
         env:
           PORT: '3200'
           MOCKSMITH_PORT: '3201'
+          # The raw TCP listener: normally an ephemeral port picked at startup.
+          MOCKSMITH_RAW_PORT: '3202'
           # CI has no Google Chrome, so use the chromium installed above.
           PLAYWRIGHT_CHANNEL: chromium

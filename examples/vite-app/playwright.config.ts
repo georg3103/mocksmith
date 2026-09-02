@@ -8,11 +8,14 @@ import { defineConfig } from '@playwright/test';
  * */
 const APP_PORT = Number(process.env.PORT ?? 3200);
 const MOCK_PORT = Number(process.env.MOCKSMITH_PORT ?? 3201);
+/** The raw TCP listener; the spec that talks to it reads this variable too. */
+const RAW_PORT = Number(process.env.MOCKSMITH_RAW_PORT ?? 3202);
 
 const baseURL = `http://localhost:${APP_PORT}`;
 
 process.env.PORT = String(APP_PORT);
 process.env.MOCKSMITH_PORT = String(MOCK_PORT);
+process.env.MOCKSMITH_RAW_PORT = String(RAW_PORT);
 process.env.MOCKSMITH_URI = `http://localhost:${MOCK_PORT}`;
 // Stops getMockPortsEnv from reserving a different pair inside the dev server.
 process.env.MOCKSMITH_PORTS_RESOLVED = 'true';
@@ -37,6 +40,7 @@ export default defineConfig({
     env: {
       PORT: String(APP_PORT),
       MOCKSMITH_PORT: String(MOCK_PORT),
+      MOCKSMITH_RAW_PORT: String(RAW_PORT),
       MOCKSMITH_PORTS_RESOLVED: 'true',
     },
   },

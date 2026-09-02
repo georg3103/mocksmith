@@ -1,11 +1,9 @@
-import type { MockData, MockFunction, MockHandlers, MocksAPI } from 'mocksmith';
+import type { MockData, MockFunction, MockHandlers } from 'mocksmith';
 
-export type Todo = { id: number; title: string; done: boolean };
+import type { ChatApi, Message } from './types';
 
-export type TodoApi = MocksAPI & {
-  user: { name: string; plan: 'free' | 'pro' };
-  todos: Todo[];
-};
+/** How many messages one page of history holds. */
+export const PAGE_SIZE = 10;
 
 const json = (body: unknown, status = 200): MockData => ({
   response: {
@@ -26,80 +24,175 @@ const methodOf = (request?: { method?: string }) => request?.method?.toUpperCase
  * `api` is a shallow copy made per request, so writes go through the session
  * itself: `context.getApiData()` is the live object the whole session reads.
  * */
-const stateOf = (context: { getApiData: () => unknown }) => context.getApiData() as TodoApi;
+const stateOf = (context: { getApiData: () => unknown }) => context.getApiData() as ChatApi;
 
-const nextId = (todos: Todo[]) => todos.reduce((max, todo) => Math.max(max, todo.id), 0) + 1;
+const queryOf = (query: unknown) => (query ?? {}) as Record<string, string | string[] | undefined>;
 
-/** GET /api/board — everything the page needs for a first paint. */
-const getBoard: MockFunction<TodoApi> = (api) =>
-  json({ user: api.user, todos: api.todos });
+const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+
+/** Ids are unique across rooms, so a single message is addressable by id alone. */
+const nextId = (state: ChatApi) =>
+  Object.values(state.messages)
+    .flat()
+    .reduce((max, message) => Math.max(max, message.id), 0) + 1;
+
+const findMessage = (state: ChatApi, id: number) =>
+  Object.values(state.messages)
+    .flat()
+    .find((message) => message.id === id);
 
 /**
- * GET /api/todos — the list.
- * POST /api/todos — adds one, then pushes the new list into this session's
- * websockets so any other open tab updates without polling.
+ * GET /api/me — identity plus the feature flags, so a flag flip is visible on
+ * screen. `sessionId` goes out too: the page drives the system API (the
+ * scenario menu) and has to name its own session rather than the default one.
  * */
-const todos: MockFunction<TodoApi> = (api, { context, request, requestData }, sendToWebSocket) => {
-  const state = stateOf(context);
+const me: MockFunction<ChatApi> = (api, { context }) =>
+  json({ me: api.me, flags: api.remoteConfigFlags, chatter: api.chatter, sessionId: context.id });
 
-  if (methodOf(request) === 'POST') {
-    const title = String((requestData.body as { title?: unknown })?.title ?? '').trim();
+/** GET /api/rooms — the sidebar: unread counts and a preview of the last line. */
+const rooms: MockFunction<ChatApi> = (api) =>
+  json({
+    rooms: api.rooms.map((room) => {
+      const messages = api.messages[room.id] ?? [];
+      const last = messages[messages.length - 1];
 
-    if (!title) {
-      return json({ error: 'title is required' }, 422);
-    }
+      return { ...room, preview: last?.text ?? '', lastAt: last?.at };
+    }),
+  });
 
-    const todo: Todo = { id: nextId(state.todos), title, done: false };
+const roomOf = (state: ChatApi, requestData: { urlParams?: unknown }) => {
+  const id = String((requestData.urlParams as { id?: string })?.id ?? '');
 
-    state.todos.push(todo);
-    sendToWebSocket({ type: 'todos', todos: state.todos });
-
-    return json({ todo, todos: state.todos }, 201);
-  }
-
-  return json({ todos: api.todos });
+  return { id, room: state.rooms.find((item) => item.id === id) };
 };
 
 /**
- * PATCH /api/todos/:id — toggles or renames.
- * DELETE /api/todos/:id — removes.
- * The `:id` segment arrives in `requestData.urlParams`.
+ * GET /api/rooms/:id/messages — one page of history, newest last.
+ *
+ * `?before=<id>` walks backwards; the absence of the parameter is what an
+ * override rule keys on to break only the older pages (see History gap).
  * */
-const todoById: MockFunction<TodoApi> = (_api, { context, request, requestData }, sendToWebSocket) => {
+const messages: MockFunction<ChatApi> = (_api, { context, request, requestData }) => {
   const state = stateOf(context);
-  const id = Number((requestData.urlParams as { id?: string })?.id);
-  const index = state.todos.findIndex((todo) => todo.id === id);
+  const { id: roomId, room } = roomOf(state, requestData);
 
-  if (index === -1) {
-    return json({ error: `no todo with id ${id}` }, 404);
+  if (methodOf(request) !== 'GET') {
+    return json({ error: 'sending goes to /api/rooms/:id/outbox' }, 405);
   }
 
-  if (methodOf(request) === 'DELETE') {
-    const [removed] = state.todos.splice(index, 1);
-
-    sendToWebSocket({ type: 'todos', todos: state.todos });
-
-    return json({ removed, todos: state.todos });
+  if (!room) {
+    return json({ error: `no room called ${roomId}` }, 404);
   }
 
-  const patch = requestData.body as Partial<Todo> | undefined;
-  const todo = state.todos[index];
+  const all = state.messages[roomId] ?? [];
+  const query = queryOf(requestData.query);
+  const before = Number(first(query.before));
+  const older = Number.isFinite(before) && before > 0 ? all.filter((item) => item.id < before) : all;
+  const page = older.slice(-PAGE_SIZE);
 
-  if (typeof patch?.done === 'boolean') {
-    todo.done = patch.done;
+  return json({ messages: page, hasMore: older.length > page.length, room });
+};
+
+/**
+ * POST /api/rooms/:id/outbox — sends a message, then pushes it into this
+ * session's websockets so any other open tab shows it without asking.
+ *
+ * Sending has a path of its own, and that is deliberate: **overrides are keyed
+ * by path, not by method**. Were the composer posting to
+ * `/api/rooms/:id/messages`, a scenario breaking sending would break reading
+ * the room as well, and "the message will not go, but the room is fine" —
+ * exactly the state worth testing — could not be expressed.
+ * */
+const outbox: MockFunction<ChatApi> = (_api, { context, requestData }, sendToWebSocket) => {
+  const state = stateOf(context);
+  const { id: roomId, room } = roomOf(state, requestData);
+
+  if (!room) {
+    return json({ error: `no room called ${roomId}` }, 404);
   }
 
-  if (typeof patch?.title === 'string' && patch.title.trim()) {
-    todo.title = patch.title.trim();
+  const text = String((requestData.body as { text?: unknown })?.text ?? '').trim();
+
+  if (!text) {
+    return json({ error: 'text is required' }, 422);
   }
 
-  sendToWebSocket({ type: 'todos', todos: state.todos });
+  const message: Message = {
+    at: new Date().toISOString(),
+    authorId: state.me.id,
+    id: nextId(state),
+    roomId,
+    text,
+  };
 
-  return json({ todo, todos: state.todos });
+  state.messages[roomId] = [...(state.messages[roomId] ?? []), message];
+  state.typing = state.typing.filter((name) => name !== state.me.name);
+  sendToWebSocket({ type: 'message', message });
+
+  return json({ message }, 201);
+};
+
+/** POST /api/rooms/:id/read — clears the unread badge. */
+const read: MockFunction<ChatApi> = (_api, { context, requestData }, sendToWebSocket) => {
+  const state = stateOf(context);
+  const { id: roomId, room } = roomOf(state, requestData);
+
+  if (!room) {
+    return json({ error: `no room called ${roomId}` }, 404);
+  }
+
+  room.unread = 0;
+  sendToWebSocket({ type: 'rooms', rooms: state.rooms });
+
+  return json({ room });
+};
+
+/**
+ * POST /api/messages/:id/reactions — toggles one emoji.
+ *
+ * Gated by the REACTIONS flag: the endpoint refuses when the flag is off, the
+ * same way a real backend would, instead of leaving the flag as UI-only sugar.
+ * */
+const reactions: MockFunction<ChatApi> = (_api, { context, requestData }, sendToWebSocket) => {
+  const state = stateOf(context);
+
+  if (!state.remoteConfigFlags.REACTIONS) {
+    return json({ error: 'reactions are off for this account' }, 403);
+  }
+
+  const message = findMessage(state, Number((requestData.urlParams as { id?: string })?.id));
+
+  if (!message) {
+    return json({ error: 'no such message' }, 404);
+  }
+
+  const emoji = String((requestData.body as { emoji?: unknown })?.emoji ?? '').trim();
+
+  if (!emoji) {
+    return json({ error: 'emoji is required' }, 422);
+  }
+
+  const current = message.reactions?.[emoji] ?? [];
+  const next = current.includes(state.me.id)
+    ? current.filter((id) => id !== state.me.id)
+    : [...current, state.me.id];
+
+  message.reactions = { ...message.reactions, [emoji]: next };
+
+  if (!next.length) {
+    delete message.reactions[emoji];
+  }
+
+  sendToWebSocket({ type: 'message-updated', message });
+
+  return json({ message });
 };
 
 export default {
-  '/api/board': getBoard,
-  '/api/todos': todos,
-  '/api/todos/:id': todoById,
-} satisfies MockHandlers<TodoApi>;
+  '/api/me': me,
+  '/api/rooms': rooms,
+  '/api/rooms/:id/messages': messages,
+  '/api/rooms/:id/outbox': outbox,
+  '/api/rooms/:id/read': read,
+  '/api/messages/:id/reactions': reactions,
+} satisfies MockHandlers<ChatApi>;

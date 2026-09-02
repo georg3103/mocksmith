@@ -1,16 +1,16 @@
 import type { SseHandler } from 'mocksmith';
 
-import type { TodoApi } from './handlers';
+import type { ChatApi } from './types';
 
 /**
- * A server-sent stream of progress: an ordinary HTTP response that is never
- * closed, with one `data:` line per event. It reads the same session as the
- * REST handlers, so anything that changes the world — a click in the page, a
- * `mocksmith session set`, an applied scenario — shows up here on the next
- * beat, with no request from the browser.
+ * A server-sent roster: an ordinary HTTP response that is never closed, with
+ * one `data:` line per beat. It reads the same session as everything else, so
+ * anything that changes the world — a message posted in the page, a
+ * `mocksmith session set`, an applied scenario, a line from the TCP bot —
+ * shows up here on the next beat, with no request from the browser.
  * */
-const progress: SseHandler = {
-  path: '/sse/progress',
+const presence: SseHandler = {
+  path: '/sse/presence',
   handler: (_req, res, context) => {
     res.writeHead(200, {
       'content-type': 'text/event-stream',
@@ -19,13 +19,13 @@ const progress: SseHandler = {
     });
 
     const send = () => {
-      const { todos, user } = context.getApiData() as TodoApi;
+      const { members, rooms, typing } = context.getApiData() as ChatApi;
 
       res.write(
         `data: ${JSON.stringify({
-          done: todos.filter((todo) => todo.done).length,
-          total: todos.length,
-          plan: user.plan,
+          members,
+          typing,
+          unread: rooms.reduce((total, room) => total + room.unread, 0),
           at: new Date().toISOString(),
         })}\n\n`
       );
@@ -39,4 +39,4 @@ const progress: SseHandler = {
   },
 };
 
-export default [progress];
+export default [presence];
