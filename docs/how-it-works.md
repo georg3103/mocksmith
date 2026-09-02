@@ -681,33 +681,40 @@ type MockFunction<M, R, D> = (
 ) => MockData<D> | Promise<MockData<D>> | undefined;
 ```
 
-Example, from `examples/vite-app/handlers.ts`. One key serves both methods —
-handlers are keyed by path, and the method is read from the request — and the
-write goes through `context.getApiData()`, the live session object, because
-`api` is a per-request shallow copy:
+Example, from `examples/vite-app/handlers.ts`. The write goes through
+`context.getApiData()`, the live session object, because `api` is a per-request
+shallow copy; the method, where a handler needs it, is read from the request,
+because handlers are keyed by path alone:
 
 ```ts
-const todos: MockFunction<TodoApi> = (api, { context, request, requestData }, sendToWebSocket) => {
-  const state = context.getApiData() as TodoApi;
+const outbox: MockFunction<ChatApi> = (_api, { context, requestData }, sendToWebSocket) => {
+  const state = context.getApiData() as ChatApi;
+  const roomId = requestData.urlParams.id;
+  const message = {
+    at: new Date().toISOString(),
+    authorId: state.me.id,
+    id: nextId(state),
+    roomId,
+    text: requestData.body.text,
+  };
 
-  if (request?.method === 'POST') {
-    const todo = { id: nextId(state.todos), title: requestData.body.title, done: false };
+  state.messages[roomId] = [...state.messages[roomId], message];
+  // pushes into every socket of this session: another open tab updates
+  sendToWebSocket({ type: 'message', message });
 
-    state.todos.push(todo);
-    // pushes into every socket of this session: another open tab updates
-    sendToWebSocket({ type: 'todos', todos: state.todos });
-
-    return { response: { status: 201, body: { todo, todos: state.todos } } };
-  }
-
-  return { response: { body: { todos: api.todos } } };
+  return { response: { status: 201, body: { message } } };
 };
 
 export default {
-  '/api/todos': todos,
-  '/api/todos/:id': todoById,   // `:id` arrives in requestData.urlParams
-} satisfies MockHandlers<TodoApi>;
+  '/api/rooms/:id/messages': messages,   // `:id` arrives in requestData.urlParams
+  '/api/rooms/:id/outbox': outbox,
+} satisfies MockHandlers<ChatApi>;
 ```
+
+**Why sending has a path of its own** is worth pausing on, because it follows
+from the design rather than from taste: overrides are keyed by path and apply to
+every method. Had the composer posted to `/api/rooms/:id/messages`, no scenario
+could break sending without also breaking reading the room.
 
 ### Resolution
 
@@ -794,6 +801,11 @@ A worked example — "slow once, then broken":
 > consumes the first element of `responses` before you see it. The demo app
 > disables `StrictMode` for exactly this reason, with a comment saying so.
 
+> **`abort` behind a proxy.** Destroying the connection reaches a browser as a
+> transport error only when the browser talks to the mock server directly. Where
+> a dev server proxies the call — the usual arrangement, and what the demo does
+> — the proxy answers the hung-up upstream with a 500 of its own.
+
 ---
 
 ## 6. Transports
@@ -863,6 +875,12 @@ Raw connections are wrapped in a `RawSocketConnection` that implements the same
 `closeWebsockets` — works identically across transports. Raw routes share
 sessions and handlers with the HTTP server: a native client and a browser can
 talk to the same mocked world.
+
+A raw connection carries no cookies, so the session cannot come from the
+request. In the working example — `examples/vite-app/rawSocketHandler.ts`, with
+`bot.mjs` as its client — the client names the session in a handshake line
+(`SESSION <id>`) and the handler returns that context, which is what binds the
+connection to it.
 
 Enable with `--raw-sockets` or `server.rawSockets: true`; starting without
 `rawSockets.routes` in the config is a startup error.
@@ -1393,7 +1411,8 @@ A verified `vite.config.ts` lives in
 
 - **A proxy is mandatory.** The mock server sends no CORS headers at all, so the
   app must reach it same-origin through the dev server. `/ws` needs
-  `{ ws: true }`.
+  `{ ws: true }`. Proxy `/__mocks` too if the app itself drives the system API —
+  the demo's scenario menu does.
 - **Host consistency matters.** Cookies treat `localhost` and `127.0.0.1` as
   different hosts; mixing them makes session isolation fail silently.
 
@@ -1617,8 +1636,10 @@ CI jobs:
   artefacts a user would install.
 - **`browser`** — typechecks the demo against the built packages, then installs
   chromium and runs the Playwright suite in `examples/vite-app` against the real
-  dev server, with fixed ports (`PORT=3200`, `MOCKSMITH_PORT=3201`) because CI
-  disables port reservation. The typecheck is not decoration: the demo is the
+  dev server, with fixed ports (`PORT=3200`, `MOCKSMITH_PORT=3201`,
+  `MOCKSMITH_RAW_PORT=3202`) because CI disables port reservation. The suite
+  drives all four transports, a plugin's own system route and the scenario
+  catalogue through the browser. The typecheck is not decoration: the demo is the
   only place where handlers typed against a project's own session shape are fed
   to `defineMockerConfig`, and that combination did not compile until
   `MockerConfig['handlers']` stopped insisting on `MockHandlers<MocksAPI>`.
@@ -1678,5 +1699,6 @@ port zero, not "unset". An empty or out-of-range value is treated as unset.
 - [docs/plugins.md](./plugins.md) — writing a plugin
 - [`examples/basic`](../examples/basic) — HTTP, websockets, SSE, scenarios
 - [`examples/core-only`](../examples/core-only) — the core alone, isolation proof
-- [`examples/vite-app`](../examples/vite-app) — The Forge Board: a React todo app
-  on HTTP + websocket + SSE, driven by Playwright in a real browser
+- [`examples/vite-app`](../examples/vite-app) — Forge Chat: a React chat on HTTP
+  + websocket + SSE + raw TCP, with a scenario menu and a local plugin, driven
+  by Playwright in a real browser

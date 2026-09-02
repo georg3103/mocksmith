@@ -40,6 +40,8 @@ export default defineConfig({
       '/api': env.MOCKSMITH_URI,
       '/sse': env.MOCKSMITH_URI,
       '/ws': { target: env.MOCKSMITH_URI, ws: true },
+      // Only if the app drives the system API itself — a scenario menu, say.
+      '/__mocks': env.MOCKSMITH_URI,
     },
   },
 });

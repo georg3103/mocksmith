@@ -18,16 +18,6 @@ session per browser or per test, reshaped while it runs.**
 
 </div>
 
-![The Forge Board — the demo app, with HTTP, WebSocket and SSE all reporting live](docs/media/demo.png)
-
-<div align="center">
-  <sub>
-    <a href="examples/vite-app">The demo app</a>: every byte comes from mocksmith.
-    The list over HTTP, live updates over a websocket, progress over SSE — and a
-    log of what actually crossed the wire.
-  </sub>
-</div>
-
 ## Reshape it while it runs
 
 ```bash
@@ -280,6 +270,8 @@ export default defineConfig({
       '/api': env.MOCKSMITH_URI,
       '/sse': env.MOCKSMITH_URI,
       '/ws': { target: env.MOCKSMITH_URI, ws: true },
+      // Only if the app itself drives the system API — a scenario menu, say.
+      '/__mocks': env.MOCKSMITH_URI,
     },
   },
 });
@@ -355,11 +347,13 @@ pnpm install && pnpm run build
 cd examples/vite-app && pnpm dev
 ```
 
-- [`examples/vite-app`](examples/vite-app) — **The Forge Board**, a React todo
-  app served entirely by mocksmith. One command starts the app and the mocks;
-  the list travels over HTTP, live updates over a websocket, progress over SSE,
-  and the page logs every frame it receives. Scenarios change what it shows;
-  Playwright drives it in a real browser.
+- [`examples/vite-app`](examples/vite-app) — **Forge Chat**, a React chat served
+  entirely by mocksmith, and the widest tour of what it does. One command starts
+  the app and the mocks; history travels over HTTP, messages and typing over a
+  websocket, presence over SSE, and a plain TCP client writes into the same
+  room. Scenarios switch from a menu in the page or from the terminal, a local
+  plugin adds `mocksmith bot say "…"`, and the page logs every frame it
+  receives. Playwright drives all of it in a real browser.
 - [`examples/basic`](examples/basic) — HTTP, websockets, SSE and scenarios, with
   a smoke script that exercises them end to end.
 - [`examples/core-only`](examples/core-only) — the core alone, asserting that the
