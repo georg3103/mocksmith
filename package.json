@@ -1,8 +1,13 @@
 {
   "name": "mocksmith-workspace",
   "private": true,
+  "version": "0.2.0",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/georg3103/mocksmith.git"
+  },
   "engines": {
     "node": ">=20.19"
   },
@@ -13,11 +18,14 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "release": "changeset publish"
+    "release:dry-run": "node scripts/publishPackages.mjs --dry-run"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.49.0",
+    "@semantic-release/changelog": "^7.0.0",
+    "@semantic-release/exec": "^7.1.0",
+    "@semantic-release/git": "^11.0.1",
     "@types/detect-port": "^1.3.5",
     "@types/lodash.merge": "^4.6.9",
     "@types/node": "^22.10.0",
@@ -26,11 +34,11 @@
     "@typescript-eslint/parser": "^8.18.0",
     "eslint": "^9.17.0",
     "globals": "^17.12.0",
+    "semantic-release": "^25.0.9",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
     "vite": "^6.0.0",
-    "vitest": "^2.1.8",
-    "@changesets/cli": "^2.27.10"
+    "vitest": "^2.1.8"
   },
   "packageManager": "pnpm@10.32.1"
 }

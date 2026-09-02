@@ -2,32 +2,50 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+    # The switch that turns publishing on. Until the repository variable
+    # RELEASE_ENABLED is set to "true", a push to main runs CI and nothing else
+    # — no tag, no GitHub release, nothing on the registry.
+    if: vars.RELEASE_ENABLED == 'true'
     steps:
       - uses: actions/checkout@v4
+        with:
+          # semantic-release works out the next version from the full tag history.
+          fetch-depth: 0
+
       - uses: pnpm/action-setup@v4
+
+      # No registry-url here on purpose: it writes an .npmrc line expecting
+      # NODE_AUTH_TOKEN, and an empty token makes npm publish anonymously —
+      # which the registry answers with a 404. Authentication comes from
+      # GitHub's OIDC token instead: npmjs.com lists this repository and this
+      # workflow file as a trusted publisher for each package.
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: pnpm
-          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing (the OIDC exchange) needs a recent npm; the one
+      # bundled with Node 22 is older than that.
+      - run: npm install --global npm@latest
+
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
       - run: pnpm run typecheck
       - run: pnpm test
       - run: pnpm run build
-      # Dry run until publishing is approved: drop --dry-run and add NPM_TOKEN
-      # to the repository secrets to publish for real. pnpm publish rewrites the
-      # workspace: protocol into real version ranges.
-      - name: Publish every package (dry run)
-        run: pnpm -r --filter './packages/*' publish --access public --no-git-checks --dry-run
+
+      - name: Release
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm exec semantic-release
