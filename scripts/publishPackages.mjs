@@ -69,26 +69,26 @@ if (tarballs.length !== packages.length) {
 /** npm's tarball name for a package: the scope loses its @ and its slash. */
 const tarballOf = ({ name }) => `${name.replace('@', '').replace('/', '-')}-${version}.tgz`;
 
-const alreadyPublished = (name) => {
-  try {
-    const found = execFileSync('npm', ['view', `${name}@${version}`, 'version'], {
-      cwd: root,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
+/**
+ * Whether the registry actually serves this version to the public.
+ *
+ * Deliberately unauthenticated: `npm publish` exiting zero is not proof that a
+ * package is available. A publish can land in npm's staging area awaiting a
+ * human's approval, and an authenticated read would still find it — which is
+ * how a release once reported success while four of five packages answered 404
+ * to everyone else.
+ * */
+const isLive = async (name) => {
+  const response = await fetch(`https://registry.npmjs.org/${name.replace('/', '%2F')}/${version}`);
 
-    return found.trim() === version;
-  } catch {
-    // Not on the registry — npm exits non-zero for a missing package or version.
-    return false;
-  }
+  return response.ok;
 };
 
 let published = 0;
 let skipped = 0;
 
 for (const { manifest } of packages) {
-  if (!dryRun && alreadyPublished(manifest.name)) {
+  if (!dryRun && (await isLive(manifest.name))) {
     console.log(`\n${manifest.name}@${version} is already on the registry — skipping`);
     skipped += 1;
     continue;
@@ -114,6 +114,37 @@ for (const { manifest } of packages) {
   published += 1;
 }
 
-console.log(
-  `\n${dryRun ? 'Dry run complete' : 'Done'}: ${published} published, ${skipped} already there — ${version}`
-);
+if (dryRun) {
+  console.log(`\nDry run complete: ${published} would be published — ${version}`);
+  process.exit(0);
+}
+
+/**
+ * The registry is the only authority on whether a release happened. npm's
+ * staging area can accept a publish, answer zero, and leave the package
+ * invisible until a human approves it — a release that says "done" while the
+ * world still gets a 404 is worse than one that fails.
+ * */
+console.log('\nVerifying every package is served to the public…');
+
+const missing = [];
+
+for (const { manifest } of packages) {
+  const live = await isLive(manifest.name);
+
+  console.log(`  ${live ? '✓' : '✗'} ${manifest.name}@${version}`);
+
+  if (!live) {
+    missing.push(manifest.name);
+  }
+}
+
+if (missing.length > 0) {
+  console.error(
+    `\n${missing.length} package(s) published without becoming public: ${missing.join(', ')}.\n` +
+      'Check npm for a staged release awaiting approval: https://www.npmjs.com/settings/mocksmith/staged-packages'
+  );
+  process.exit(1);
+}
+
+console.log(`\nDone: ${published} published, ${skipped} already there — ${version} is live`);
