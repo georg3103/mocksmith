@@ -54,25 +54,22 @@ const rest = declared.filter((name) => name !== 'mocksmith' && !name.startsWith(
 
 console.log(`Installing ${wanted.length} local package(s) plus ${rest.length} dependency(-ies)`);
 
-const install = (specifiers) =>
-  execFileSync('npm', ['install', '--no-package-lock', ...specifiers], { stdio: 'inherit' });
-
 /**
- * The core goes in first, on its own.
+ * Everything goes in one command, and peer resolution is turned off.
  *
- * Every companion declares `mocksmith` as a peer dependency, and npm cannot
- * resolve a peer that is itself an unresolved tarball in the same command — it
- * fails deep inside its tree builder with "Cannot destructure property
- * 'package' of 'node.target' as it is null". Installing the core first gives
- * that peer something real to point at.
+ * Both constraints come from npm. The whole set has to be installed at once
+ * because the manifest still says `workspace:*` for the packages not named on
+ * the command line, and npm rejects that protocol outright. And with peer
+ * resolution on, npm crashes while building the tree — "Cannot destructure
+ * property 'package' of 'node.target' as it is null" — because every companion
+ * declares the core as a peer, and that peer is itself an unresolved tarball in
+ * the same command.
+ *
+ * Skipping peers costs nothing here: what this check is about is whether the
+ * declared packages alone are enough to run the example.
  * */
-const core = wanted.find(({ name }) => name === 'mocksmith');
-const companions = wanted.filter((entry) => entry !== core).map(({ file }) => file);
-
-if (core) {
-  install([core.file]);
-}
-
-if (companions.length > 0 || rest.length > 0) {
-  install([...companions, ...rest]);
-}
+execFileSync(
+  'npm',
+  ['install', '--no-package-lock', '--legacy-peer-deps', ...wanted.map(({ file }) => file), ...rest],
+  { stdio: 'inherit' }
+);
