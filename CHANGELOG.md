@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/georg3103/mocksmith/compare/v0.3.0...v0.3.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* verify a release is actually public before calling it done ([fbe4721](https://github.com/georg3103/mocksmith/commit/fbe47215ce3fe1b7b22fe9cbc6bb8f40b71ccedc))
+
 # [0.3.0](https://github.com/georg3103/mocksmith/compare/v0.2.0...v0.3.0) (2026-09-02)
 
 
