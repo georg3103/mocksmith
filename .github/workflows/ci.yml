@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # So a run can be started by hand — after a push that carried [skip ci], for
+  # instance, which is exactly when you most want to see the checks.
+  workflow_dispatch:
 
 jobs:
   check:
