@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.3.0](https://github.com/georg3103/mocksmith/compare/v0.2.0...v0.3.0) (2026-09-02)
+
+
+### Bug Fixes
+
+* accept handlers typed against a project's own session shape ([d6d5d1b](https://github.com/georg3103/mocksmith/commit/d6d5d1b7381034587eff5bad0205072a022aa518))
+* install the example tarballs in one command, without peer resolution ([cb5fec8](https://github.com/georg3103/mocksmith/commit/cb5fec8887edb9a497e943ec51ff358626545f86))
+* repair what the first CI run exposed ([927b2e1](https://github.com/georg3103/mocksmith/commit/927b2e193483dc9d6ec82a71267e704459e403f1))
+
+
+### Features
+
+* rebuild the browser demo as a live todo board ([d7bebeb](https://github.com/georg3103/mocksmith/commit/d7bebeb5b1378f8046248a71ad71027cdb74f45c))
+
 ## 0.2.0
 
 Split into a core plus opt-in companion packages, and added a plugin system.
