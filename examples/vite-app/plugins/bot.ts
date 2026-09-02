@@ -1,6 +1,8 @@
-import { definePlugin, type MocksmithPlugin } from 'mocksmith/plugin';
+import { definePlugin, type MocksmithPlugin, type PluginSystemHandler } from 'mocksmith/plugin';
 
-import type { ChatApi, Message } from '../types';
+import { postMessage } from '../messages';
+
+import type { ChatApi } from '../types';
 
 type SayRequest = { id?: string; room?: string; text?: string };
 
@@ -28,53 +30,45 @@ export const bot = (options: BotOptions = {}): MocksmithPlugin => {
     name: 'chat-bot',
 
     setup(ctx) {
-      ctx.addSystemHandlers({
-        // Reachable as POST /__mocks/api/bot/say
-        'bot/say': (_api: unknown, { requestData }: { requestData: { body: SayRequest } }) => {
-          const { id, room = 'general', text } = requestData.body ?? {};
+      // Reachable as POST /__mocks/api/bot/say. The plugin types its own body:
+      // `PluginSystemHandler` exists so that does not need a cast.
+      const say: PluginSystemHandler = (
+        _api: unknown,
+        { requestData }: { requestData: { body: SayRequest } }
+      ) => {
+        const { id, room = 'general', text } = requestData.body ?? {};
 
-          if (!text?.trim()) {
-            return { response: { status: 400, body: { result: 'text-required' } } };
-          }
+        if (!text?.trim()) {
+          return { response: { status: 400, body: { result: 'text-required' } } };
+        }
 
-          const session = id ? ctx.sessions.getById(id) : ctx.sessions.getDefaultSession();
+        const session = id ? ctx.sessions.getById(id) : ctx.sessions.getDefaultSession();
 
-          if (!session) {
-            return {
-              response: { status: 404, body: { result: 'no-session', known: ctx.sessions.listIds() } },
-            };
-          }
-
-          const state = session.getApiData() as ChatApi;
-          const messages = state.messages[room];
-
-          if (!messages) {
-            return { response: { status: 404, body: { result: 'no-room', room } } };
-          }
-
-          const message: Message = {
-            at: new Date().toISOString(),
-            authorId,
-            id:
-              Object.values(state.messages)
-                .flat()
-                .reduce((max, item) => Math.max(max, item.id), 0) + 1,
-            roomId: room,
-            text: text.trim(),
+        if (!session) {
+          return {
+            response: { status: 404, body: { result: 'no-session', known: ctx.sessions.listIds() } },
           };
+        }
 
-          messages.push(message);
+        const state = session.getApiData() as ChatApi;
 
-          // Fire-and-forget: the reply does not wait for the frame to land.
-          void ctx.callSystemApi('sendToWebsocket', {
-            id: session.id,
-            // The system API takes an outgoing *message*, whose payload is `data`.
-            data: { data: { type: 'message', message } },
-          });
+        if (!state.messages[room]) {
+          return { response: { status: 404, body: { result: 'no-room', room } } };
+        }
 
-          return { response: { body: { result: 'ok', message } } };
-        },
-      });
+        const message = postMessage(state, { authorId, roomId: room, text: text.trim() });
+
+        // Fire-and-forget: the reply does not wait for the frame to land.
+        void ctx.callSystemApi('sendToWebsocket', {
+          id: session.id,
+          // The system API takes an outgoing *message*, whose payload is `data`.
+          data: { data: { type: 'message', message } },
+        });
+
+        return { response: { body: { result: 'ok', message } } };
+      };
+
+      ctx.addSystemHandlers({ 'bot/say': say });
 
       ctx.logger.info('`mocksmith bot say "…"` is available');
     },

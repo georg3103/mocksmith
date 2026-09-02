@@ -1,9 +1,11 @@
 import { sessions } from 'mocksmith';
 
+import { postMessage } from './messages';
+
 import type { MockContext, SocketConnection } from 'mocksmith';
 import type { IncomingMessage } from 'node:http';
 
-import type { ChatApi, Message } from './types';
+import type { ChatApi } from './types';
 
 /**
  * A native client on a plain TCP socket, sharing the world with the browser.
@@ -56,18 +58,7 @@ const handler = (
       }
 
       const state = current.getApiData() as ChatApi;
-      const message: Message = {
-        at: new Date().toISOString(),
-        authorId: 'u-bot',
-        id:
-          Object.values(state.messages)
-            .flat()
-            .reduce((max, item) => Math.max(max, item.id), 0) + 1,
-        roomId: 'general',
-        text: argument,
-      };
-
-      state.messages.general.push(message);
+      const message = postMessage(state, { authorId: 'u-bot', text: argument });
 
       // Only the browser sockets: this client speaks lines, not JSON frames.
       const frame = JSON.stringify({ type: 'message', message });

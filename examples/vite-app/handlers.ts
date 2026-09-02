@@ -1,6 +1,7 @@
 import type { MockData, MockFunction, MockHandlers } from 'mocksmith';
 
-import type { ChatApi, Message } from './types';
+import { postMessage } from './messages';
+import type { ChatApi } from './types';
 
 /** How many messages one page of history holds. */
 export const PAGE_SIZE = 10;
@@ -29,12 +30,6 @@ const stateOf = (context: { getApiData: () => unknown }) => context.getApiData()
 const queryOf = (query: unknown) => (query ?? {}) as Record<string, string | string[] | undefined>;
 
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
-
-/** Ids are unique across rooms, so a single message is addressable by id alone. */
-const nextId = (state: ChatApi) =>
-  Object.values(state.messages)
-    .flat()
-    .reduce((max, message) => Math.max(max, message.id), 0) + 1;
 
 const findMessage = (state: ChatApi, id: number) =>
   Object.values(state.messages)
@@ -117,15 +112,8 @@ const outbox: MockFunction<ChatApi> = (_api, { context, requestData }, sendToWeb
     return json({ error: 'text is required' }, 422);
   }
 
-  const message: Message = {
-    at: new Date().toISOString(),
-    authorId: state.me.id,
-    id: nextId(state),
-    roomId,
-    text,
-  };
+  const message = postMessage(state, { authorId: state.me.id, roomId, text });
 
-  state.messages[roomId] = [...(state.messages[roomId] ?? []), message];
   state.typing = state.typing.filter((name) => name !== state.me.name);
   sendToWebSocket({ type: 'message', message });
 

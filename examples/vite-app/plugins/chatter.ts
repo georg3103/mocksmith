@@ -1,6 +1,8 @@
 import { definePlugin, type MocksmithPlugin } from 'mocksmith/plugin';
 
-import type { ChatApi, Message } from '../types';
+import { postMessage } from '../messages';
+
+import type { ChatApi } from '../types';
 
 type ChatterOptions = {
   /** What the room says, in order. Deterministic, so a test can assert on it. */
@@ -61,18 +63,11 @@ export const chatter = (options: ChatterOptions = {}): MocksmithPlugin => {
 
           const [author, ...rest] = lines[seen.index % lines.length].split(': ');
           const speaker = data.members.find((member) => member.name === author);
-          const message: Message = {
-            at: new Date().toISOString(),
+          const message = postMessage(data, {
             authorId: speaker?.id ?? 'u-bot',
-            id:
-              Object.values(data.messages)
-                .flat()
-                .reduce((max, item) => Math.max(max, item.id), 0) + 1,
-            roomId: 'general',
             text: rest.join(': '),
-          };
+          });
 
-          data.messages.general.push(message);
           state.set(id, { at: now, index: seen.index + 1 });
 
           void ctx.callSystemApi('sendToWebsocket', {
