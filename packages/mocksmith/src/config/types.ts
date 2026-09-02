@@ -5,7 +5,7 @@ import type { MockContext } from '../context/context';
 import type { SessionTokens } from '../context/session';
 import type { SocketConnection } from '../socketConnection';
 
-import type { MockHandlers, MocksAPI, RewritePath, SseHandler } from '../types';
+import type { MockHandlers, RewritePath, SseHandler } from '../types';
 import type { MockerPluginDiscovery, MockerPluginEntry } from '../plugin/types';
 import type { WebsocketMessageEncoder } from '../websocketEncoder';
 
@@ -60,7 +60,14 @@ export type MockerConfig = {
   };
   defaultSessionData: MockerConfigResource<object>;
   defaultSessionId?: string;
-  handlers: MockerConfigResource<MockHandlers<MocksAPI>>[];
+  /**
+   * A project types its handlers against its own session shape
+   * (`MockHandlers<ShopApi>`), and the server erases that shape at runtime —
+   * so the config accepts handlers written for any shape. Narrowing this to
+   * `MockHandlers<MocksAPI>` would reject every typed handler map, since a
+   * `MockFunction<ShopApi>` cannot be called with a bare `MocksAPI`.
+   * */
+  handlers: MockerConfigResource<MockHandlers<any>>[];
   /**
    * Plugins to load: an inline plugin or factory, a module specifier
    * ('@mocksmith/scenarios/plugin', './my-plugin.ts'), or { use, options }.
