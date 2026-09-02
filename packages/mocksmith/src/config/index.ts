@@ -1,5 +1,6 @@
 export { defineMockerConfig } from './defineMockerConfig';
 export { getMockEnv } from '../env';
+export { importModule } from '../utils/importModule';
 export { loadConfigResource } from './loadConfigResource';
 export { loadMockerConfig } from './loadMockerConfig';
 export { startMockerFromConfig } from './startMockerFromConfig';
