@@ -23,11 +23,18 @@ const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
 const declared = Object.keys(manifest.dependencies ?? {});
 const tarballs = readdirSync(tarballDirectory).filter((name) => name.endsWith('.tgz'));
 
-/** `@mocksmith/scenarios` packs as `mocksmith-scenarios-0.2.0.tgz`. */
+/**
+ * `@mocksmith/scenarios` packs as `mocksmith-scenarios-0.2.0.tgz`.
+ *
+ * The version has to be part of the match: a prefix alone would let the core
+ * `mocksmith` pick up `mocksmith-vite-1.2.3.tgz`, whichever the directory
+ * happened to list first.
+ * */
 const tarballFor = (packageName) => {
   const flat = packageName.replace('@', '').replace('/', '-');
+  const pattern = new RegExp(`^${flat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d.*\\.tgz$`);
 
-  return tarballs.find((name) => name.startsWith(`${flat}-`));
+  return tarballs.find((name) => pattern.test(name));
 };
 
 const wanted = declared
@@ -40,11 +47,32 @@ const wanted = declared
       process.exit(1);
     }
 
-    return path.join(tarballDirectory, tarball);
+    return { name, file: path.join(tarballDirectory, tarball) };
   });
 
 const rest = declared.filter((name) => name !== 'mocksmith' && !name.startsWith('@mocksmith/'));
 
 console.log(`Installing ${wanted.length} local package(s) plus ${rest.length} dependency(-ies)`);
 
-execFileSync('npm', ['install', '--no-package-lock', ...wanted, ...rest], { stdio: 'inherit' });
+const install = (specifiers) =>
+  execFileSync('npm', ['install', '--no-package-lock', ...specifiers], { stdio: 'inherit' });
+
+/**
+ * The core goes in first, on its own.
+ *
+ * Every companion declares `mocksmith` as a peer dependency, and npm cannot
+ * resolve a peer that is itself an unresolved tarball in the same command — it
+ * fails deep inside its tree builder with "Cannot destructure property
+ * 'package' of 'node.target' as it is null". Installing the core first gives
+ * that peer something real to point at.
+ * */
+const core = wanted.find(({ name }) => name === 'mocksmith');
+const companions = wanted.filter((entry) => entry !== core).map(({ file }) => file);
+
+if (core) {
+  install([core.file]);
+}
+
+if (companions.length > 0 || rest.length > 0) {
+  install([...companions, ...rest]);
+}

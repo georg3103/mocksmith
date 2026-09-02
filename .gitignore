@@ -8,3 +8,8 @@ playwright-report/
 examples/**/package-lock.json
 *.tgz
 test-results/
+
+# The plugin-discovery test resolves real packages, so its fixture has to be a
+# real node_modules directory — and that one is checked in.
+!packages/mocksmith/src/plugin/fixtures/project/node_modules/
+!packages/mocksmith/src/plugin/fixtures/project/node_modules/**

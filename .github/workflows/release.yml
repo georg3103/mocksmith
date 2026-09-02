@@ -59,10 +59,11 @@ jobs:
         run: npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
 
       - run: pnpm install --frozen-lockfile
+      # Build first: a typecheck resolves a package's types through its dist.
+      - run: pnpm run build
       - run: pnpm run lint
       - run: pnpm run typecheck
       - run: pnpm test
-      - run: pnpm run build
 
       - name: Release
         env:
