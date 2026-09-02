@@ -1,47 +1,11 @@
-import { applyScenarioViaApi, type ApplyScenarioSummary } from './applyScenarioViaApi';
-import { loadScenario } from './loadScenario';
+import { applyScenarioViaApi, type ApplyScenarioSummary } from '../scenario/applyOverApi';
+import { loadScenario } from '../catalogue/loadScenario';
+import { formatCatalogue, type ScenarioSummary } from './formatCatalogue';
 
 import type { PluginCliCommand, PluginCliContext } from 'mocksmith/plugin';
 
-type ScenarioSummary = {
-  name: string;
-  source?: string;
-  feature?: string;
-  description?: string;
-  order?: number;
-  endpoints: number;
-};
-
 const looksLikePath = (value: string) =>
   value.startsWith('.') || value.startsWith('/') || /\.[cm]?[jt]s$/.test(value);
-
-const formatList = (scenarios: ScenarioSummary[]) => {
-  if (!scenarios.length) {
-    return 'No scenarios registered. Point the plugin at your files: scenarios({ dir: "." }).';
-  }
-
-  const groups = new Map<string, ScenarioSummary[]>();
-
-  for (const scenario of scenarios) {
-    const feature = scenario.feature ?? 'Scenarios';
-
-    groups.set(feature, [...(groups.get(feature) ?? []), scenario]);
-  }
-
-  return [...groups.entries()]
-    .map(([feature, items]) => {
-      const lines = items
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name))
-        .map((item) => {
-          const suffix = item.description ? ` — ${item.description}` : '';
-
-          return `  ${item.name}${suffix}`;
-        });
-
-      return [`${feature}:`, ...lines].join('\n');
-    })
-    .join('\n\n');
-};
 
 /**
  * The `scenario` command group. Names are resolved by the running server, which
@@ -63,7 +27,7 @@ export const scenarioCliCommands = (): PluginCliCommand[] => [
             {}
           );
 
-          ctx.log.info(formatList(scenarios));
+          ctx.log.info(formatCatalogue(scenarios));
         },
       },
       {
@@ -78,7 +42,7 @@ export const scenarioCliCommands = (): PluginCliCommand[] => [
           let summary: ApplyScenarioSummary;
 
           if (looksLikePath(target)) {
-            const scenario = await loadScenario(target);
+            const scenario = await loadScenario(target, ctx.loadModule);
 
             summary = await applyScenarioViaApi(scenario, ctx.callApi, {
               sessionId: ctx.sessionId,

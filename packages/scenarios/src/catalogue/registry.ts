@@ -1,4 +1,4 @@
-import type { Scenario } from './types';
+import type { Scenario } from '../scenario/types';
 
 export type RegisteredScenario = {
   name: string;
@@ -38,11 +38,4 @@ export const createScenarioRegistry = () => {
     names: () => [...items.keys()],
     size: () => items.size,
   };
-};
-
-/** Falls back to the file name: `degraded.scenario.ts` → `degraded`. */
-export const scenarioNameFromFile = (filePath: string) => {
-  const base = filePath.split(/[\\/]/).pop() ?? filePath;
-
-  return base.replace(/\.scenario\.[^.]+$/, '').replace(/\.[^.]+$/, '');
 };

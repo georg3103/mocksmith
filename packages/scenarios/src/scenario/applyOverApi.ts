@@ -1,11 +1,13 @@
-import { endpointsToRules } from './endpointsToRules';
+import { summarize, toOperations } from './toOperations';
 
 import type { Scenario } from './types';
+import type { ApplyScenarioSummary } from './toOperations';
 
 /**
  * Transport used to reach the mock server's system API: gets the endpoint
  * name (e.g. `setOverride`) and the request body. The CLI backs it with
- * `fetch`, the Playwright fixture with `page.request`.
+ * `fetch`, the Playwright fixture with `page.request`, a plugin with
+ * `ctx.callSystemApi`.
  * */
 export type ScenarioApiCall = (
   endpoint: string,
@@ -19,17 +21,12 @@ export type ApplyScenarioOptions = {
   clearExisting?: boolean;
 };
 
-export type ApplyScenarioSummary = {
-  paths: number;
-  rules: number;
-  /** True unless the scenario opted out via `reload: false`. */
-  reloadRequested: boolean;
-};
+export type { ApplyScenarioSummary };
 
 /**
- * The single canonical implementation of "apply a scenario": clears old
- * overrides (opt-in), patches session data and flags, then registers the
- * endpoint override rules. Reused by the CLI and the Playwright fixture.
+ * Applies a scenario through the system API — the path the CLI, the Playwright
+ * fixture and plugins all take. The steps come from `toOperations`; this only
+ * knows how to send one.
  * */
 export async function applyScenarioViaApi(
   scenario: Scenario,
@@ -37,30 +34,21 @@ export async function applyScenarioViaApi(
   options: ApplyScenarioOptions = {}
 ): Promise<ApplyScenarioSummary> {
   const id = options.sessionId;
+  const operations = toOperations(scenario, { clearExisting: options.clearExisting });
 
-  if (options.clearExisting) {
-    await callApi('clearOverride', { id, all: true });
+  for (const operation of operations) {
+    switch (operation.kind) {
+      case 'clearOverrides':
+        await callApi('clearOverride', { id, all: true });
+        break;
+      case 'patchSession':
+        await callApi('patchSession', { id, patch: operation.patch });
+        break;
+      case 'setOverride':
+        await callApi('setOverride', { id, path: operation.path, rules: operation.rules });
+        break;
+    }
   }
 
-  if (scenario.session?.patch) {
-    await callApi('patchSession', { id, patch: scenario.session.patch });
-  }
-
-  if (scenario.session?.flags) {
-    await callApi('patchSession', { id, patch: { remoteConfigFlags: scenario.session.flags } });
-  }
-
-  const entries = endpointsToRules(scenario.endpoints);
-  let rules = 0;
-
-  for (const { path, rules: pathRules } of entries) {
-    rules += pathRules.length;
-    await callApi('setOverride', { id, path, rules: pathRules });
-  }
-
-  return {
-    paths: entries.length,
-    rules,
-    reloadRequested: scenario.reload !== false,
-  };
+  return summarize(scenario, operations);
 }

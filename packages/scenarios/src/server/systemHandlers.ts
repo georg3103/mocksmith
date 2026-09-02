@@ -1,7 +1,7 @@
-import { applyScenarioViaApi } from './applyScenarioViaApi';
+import { applyScenarioViaApi } from '../scenario/applyOverApi';
 
-import type { PluginSetupContext } from 'mocksmith/plugin';
-import type { ScenarioRegistry } from './registry';
+import type { PluginSetupContext, PluginSystemHandler } from 'mocksmith/plugin';
+import type { ScenarioRegistry } from '../catalogue/registry';
 
 type ApplyRequest = { id?: string; name?: string; clearExisting?: boolean };
 
@@ -13,7 +13,7 @@ type ApplyRequest = { id?: string; name?: string; clearExisting?: boolean };
 export const createScenarioSystemHandlers = (
   registry: ScenarioRegistry,
   ctx: Pick<PluginSetupContext, 'callSystemApi'>
-) => ({
+): Record<string, PluginSystemHandler> => ({
   scenarios: () => ({
     response: {
       body: {
