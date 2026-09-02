@@ -5,8 +5,9 @@
 **One mock server for HTTP, WebSocket, raw TCP/TLS and SSE — one isolated
 session per browser or per test, reshaped while it runs.**
 
+[![npm](https://img.shields.io/npm/v/mocksmith)](https://www.npmjs.com/package/mocksmith)
 [![CI](https://github.com/georg3103/mocksmith/actions/workflows/ci.yml/badge.svg)](https://github.com/georg3103/mocksmith/actions/workflows/ci.yml)
-[![status](https://img.shields.io/badge/status-pre--release-orange)](#status)
+[![downloads](https://img.shields.io/npm/dm/mocksmith)](https://www.npmjs.com/package/mocksmith)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A5%2020.19-brightgreen)](#requirements)
 [![module](https://img.shields.io/badge/module-ESM%20only-informational)](#requirements)
@@ -16,12 +17,6 @@ session per browser or per test, reshaped while it runs.**
 [Docs](docs/how-it-works.md) · [Examples](#examples) · [Contributing](CONTRIBUTING.md)
 
 </div>
-
-<!--
-  Once the packages are on the registry, swap the status badge for these:
-  [![npm](https://img.shields.io/npm/v/mocksmith)](https://www.npmjs.com/package/mocksmith)
-  [![downloads](https://img.shields.io/npm/dm/mocksmith)](https://www.npmjs.com/package/mocksmith)
--->
 
 ![The Forge Board — the demo app, with HTTP, WebSocket and SSE all reporting live](docs/media/demo.png)
 
@@ -52,23 +47,16 @@ npx mocksmith session reset                          # put it all back
 Every browser tab and every parallel test has its **own** copy of that world, so
 one test's 503 is invisible to the next.
 
-## Status
-
-Working, tested — 140 tests, three CI jobs, a browser suite driving a real app —
-and **not on npm yet**. Until the first release, install from a git checkout or
-from local tarballs:
-
-```bash
-git clone https://github.com/georg3103/mocksmith.git && cd mocksmith
-pnpm install && pnpm run build
-pnpm -r --filter './packages/*' pack --pack-destination /tmp/tarballs
-```
-
-After the first publish, this is all it takes:
+## Install
 
 ```bash
 npm install --save-dev mocksmith
 ```
+
+The version is `0.x` on purpose: the shape is settled enough to build on — 140
+tests, three CI jobs and a browser suite driving a real app — but the API may
+still move before 1.0. Every package is released together at one version, so
+`mocksmith` and any `@mocksmith/*` you install always match.
 
 ## Install what you use
 
