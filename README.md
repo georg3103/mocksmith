@@ -31,6 +31,9 @@ one:
 Companion packages plug into the core through a documented
 [plugin API](docs/plugins.md) — the same one your own packages can use.
 
+For the full picture — the request lifecycle, sessions, the startup sequence,
+and how the pieces fit — see [docs/how-it-works.md](docs/how-it-works.md).
+
 ## Why
 
 Most mocking tools intercept HTTP in the browser or match single requests. This
@@ -288,9 +291,11 @@ lifecycle. See [docs/plugins.md](docs/plugins.md).
   a smoke script that exercises them end to end.
 - [`examples/core-only`](examples/core-only) — the core alone, asserting that the
   companion packages are genuinely absent while the server still works.
-- [`examples/vite-app`](examples/vite-app) — a React app where one command
-  starts the dev server and the mocks, scenarios change what the page shows,
-  and Playwright drives it in a browser.
+- [`examples/vite-app`](examples/vite-app) — **The Forge Board**, a React todo
+  app served entirely by mocksmith: the list over HTTP, live updates over a
+  websocket, progress over SSE, with all three reporting their state on the
+  page. One command starts the app and the mocks; scenarios change what the
+  page shows; Playwright drives it in a real browser.
 
 ## Requirements
 
@@ -302,6 +307,12 @@ Extracted and generalised from an internal mock server used to develop and test
 several production front-ends. All domain-specific protocol code, reference data
 and endpoint fixtures were left behind; what remains is the transport-agnostic
 engine.
+
+## Contributing
+
+Commit messages drive the release: `fix:` cuts a patch, `feat:` a minor, and
+every package is published together at one version. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
