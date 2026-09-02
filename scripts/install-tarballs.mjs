@@ -9,7 +9,7 @@
  * Usage: node scripts/install-tarballs.mjs <tarball-directory>
  */
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 const [tarballDirectory] = process.argv.slice(2);
@@ -55,21 +55,22 @@ const rest = declared.filter((name) => name !== 'mocksmith' && !name.startsWith(
 console.log(`Installing ${wanted.length} local package(s) plus ${rest.length} dependency(-ies)`);
 
 /**
- * Everything goes in one command, and peer resolution is turned off.
+ * The workspace install is thrown away first.
  *
- * Both constraints come from npm. The whole set has to be installed at once
- * because the manifest still says `workspace:*` for the packages not named on
- * the command line, and npm rejects that protocol outright. And with peer
- * resolution on, npm crashes while building the tree — "Cannot destructure
- * property 'package' of 'node.target' as it is null" — because every companion
- * declares the core as a peer, and that peer is itself an unresolved tarball in
- * the same command.
+ * Running inside the workspace, this directory already holds a `node_modules`
+ * that pnpm built out of symlinks to `packages/*`. Installing over it does not
+ * just muddy the check — npm cannot read that tree at all, and dies with
+ * "Cannot destructure property 'package' of 'node.target' as it is null".
+ * Starting from nothing is also what the check is actually about: a tree
+ * containing the declared tarballs and their real dependencies, and nothing a
+ * sibling package happened to leave behind.
  *
- * Skipping peers costs nothing here: what this check is about is whether the
- * declared packages alone are enough to run the example.
+ * The whole set goes in one command, because the manifest still says
+ * `workspace:*` for anything not named on the command line, and npm rejects
+ * that protocol outright.
  * */
-execFileSync(
-  'npm',
-  ['install', '--no-package-lock', '--legacy-peer-deps', ...wanted.map(({ file }) => file), ...rest],
-  { stdio: 'inherit' }
-);
+rmSync('node_modules', { recursive: true, force: true });
+
+execFileSync('npm', ['install', '--no-package-lock', ...wanted.map(({ file }) => file), ...rest], {
+  stdio: 'inherit',
+});
