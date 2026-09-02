@@ -1571,11 +1571,24 @@ Two switches worth knowing:
   registry's dry-run mode, which is the fastest way to see exactly what would be
   uploaded.
 
-**No `NPM_TOKEN` anywhere.** Authentication is npm's trusted publishing: npmjs
-lists this repository and this workflow file as the publisher for each package,
-and the npm CLI trades GitHub's OIDC token for a short-lived registry one. The
-first publish of a brand-new package still has to be done by a human — a
-trusted publisher can only be configured on a package that already exists.
+**Authentication, and the chicken-and-egg at the start.** The destination is
+npm's trusted publishing: npmjs lists this repository and this workflow file as
+the publisher for each package, the npm CLI trades GitHub's OIDC token for a
+short-lived registry one, and no token is stored anywhere. But a trusted
+publisher can only be configured on a package that *already exists*, so the
+first release of a new package cannot use it.
+
+That first release goes out with an npm **automation token** in the `NPM_TOKEN`
+secret — the token type that publishes without a one-time password, which is
+what makes an unattended release possible when the account has 2FA on. The
+workflow writes it to `.npmrc` only if the secret is set, so the day trusted
+publishing is configured for all five packages, deleting the secret is the
+entire migration.
+
+Two-factor codes are still handled if a human publishes by hand:
+`node scripts/publishPackages.mjs --otp <code>`. A code expires in about thirty
+seconds, so the script skips a version already on the registry rather than
+failing on it — repeat the command with a fresh code until every package is up.
 
 ---
 

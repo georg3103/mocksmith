@@ -3,6 +3,8 @@ name: Release
 on:
   push:
     branches: [main]
+  # Lets a release be cut without an empty commit — useful for the first one.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,6 +19,10 @@ jobs:
     # RELEASE_ENABLED is set to "true", a push to main runs CI and nothing else
     # — no tag, no GitHub release, nothing on the registry.
     if: vars.RELEASE_ENABLED == 'true'
+    env:
+      # An npm automation (or granular) token publishes without a one-time
+      # password, which is what makes an unattended release possible at all.
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,17 +33,30 @@ jobs:
 
       # No registry-url here on purpose: it writes an .npmrc line expecting
       # NODE_AUTH_TOKEN, and an empty token makes npm publish anonymously —
-      # which the registry answers with a 404. Authentication comes from
-      # GitHub's OIDC token instead: npmjs.com lists this repository and this
-      # workflow file as a trusted publisher for each package.
+      # which the registry answers with a 404. Authentication is written below,
+      # only when there is something to write.
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: pnpm
 
-      # Trusted publishing (the OIDC exchange) needs a recent npm; the one
-      # bundled with Node 22 is older than that.
+      # Recent npm for two reasons: provenance attestation, and the OIDC
+      # exchange behind trusted publishing.
       - run: npm install --global npm@latest
+
+      # Two ways to authenticate, in order of preference:
+      #
+      # 1. Trusted publishing — no token at all. npmjs lists this repository and
+      #    this workflow as the publisher of each package, and npm trades
+      #    GitHub's OIDC token for a short-lived registry one. It can only be
+      #    configured on a package that already exists, so it cannot be used for
+      #    a package's very first publish.
+      # 2. An automation token in the NPM_TOKEN secret — which is how the first
+      #    release gets out. Once every package is on the registry and trusted
+      #    publishing is configured, delete the secret and this step goes quiet.
+      - name: Authenticate to npm when a token is provided
+        if: env.NPM_TOKEN != ''
+        run: npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint

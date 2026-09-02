@@ -15,7 +15,13 @@
  * Pass --dry-run (or set RELEASE_DRY_RUN=true) to run the whole path without
  * touching the registry.
  *
- * Usage: node scripts/publishPackages.mjs [--dry-run]
+ * Pass --otp <code> (or set NPM_OTP) when the account has two-factor
+ * authentication on publish. A code expires in about thirty seconds, so a run
+ * can outlive it — which is why an already-published version is skipped rather
+ * than treated as a conflict, and the whole command can simply be repeated with
+ * a fresh code until every package is up.
+ *
+ * Usage: node scripts/publishPackages.mjs [--dry-run] [--otp <code>]
  */
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
@@ -27,6 +33,8 @@ import { workspacePackages } from './workspacePackages.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dryRun = process.argv.includes('--dry-run') || process.env.RELEASE_DRY_RUN === 'true';
+const otpFlag = process.argv.indexOf('--otp');
+const otp = otpFlag === -1 ? process.env.NPM_OTP : process.argv[otpFlag + 1];
 
 const run = (command, args) =>
   execFileSync(command, args, { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' });
@@ -58,20 +66,54 @@ if (tarballs.length !== packages.length) {
   process.exit(1);
 }
 
-for (const tarball of tarballs) {
-  const args = ['publish', path.join(tarballDirectory, tarball), '--access', 'public'];
+/** npm's tarball name for a package: the scope loses its @ and its slash. */
+const tarballOf = ({ name }) => `${name.replace('@', '').replace('/', '-')}-${version}.tgz`;
+
+const alreadyPublished = (name) => {
+  try {
+    const found = execFileSync('npm', ['view', `${name}@${version}`, 'version'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+
+    return found.trim() === version;
+  } catch {
+    // Not on the registry — npm exits non-zero for a missing package or version.
+    return false;
+  }
+};
+
+let published = 0;
+let skipped = 0;
+
+for (const { manifest } of packages) {
+  if (!dryRun && alreadyPublished(manifest.name)) {
+    console.log(`\n${manifest.name}@${version} is already on the registry — skipping`);
+    skipped += 1;
+    continue;
+  }
+
+  const args = ['publish', path.join(tarballDirectory, tarballOf(manifest)), '--access', 'public'];
 
   // Provenance is signed by the CI runner, so it only works inside Actions.
   if (process.env.CI) {
     args.push('--provenance');
   }
 
+  if (otp) {
+    args.push('--otp', otp);
+  }
+
   if (dryRun) {
     args.push('--dry-run');
   }
 
-  console.log(`\nnpm ${args.join(' ')}`);
+  console.log(`\nnpm ${args.map((arg) => (arg === otp ? '******' : arg)).join(' ')}`);
   run('npm', args);
+  published += 1;
 }
 
-console.log(`\n${dryRun ? 'Dry run complete' : 'Published'}: ${packages.length} package(s) at ${version}`);
+console.log(
+  `\n${dryRun ? 'Dry run complete' : 'Done'}: ${published} published, ${skipped} already there — ${version}`
+);

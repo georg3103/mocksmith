@@ -52,7 +52,12 @@ Three things worth repeating here:
   publishing. Neither tool can replace the other here.
 - **Nothing publishes until it is switched on.** The release job is gated on the
   repository variable `RELEASE_ENABLED`; until it is `true`, a push to `main`
-  runs CI only.
+  runs CI only. A release can also be started by hand from the Actions tab
+  (`workflow_dispatch`), which is how the first one is cut.
+- **No one types a 2FA code into CI.** Authentication is an npm automation token
+  in the `NPM_TOKEN` secret, and once every package exists on the registry it is
+  replaced by trusted publishing — delete the secret and the workflow falls back
+  to the OIDC exchange on its own.
 
 To see what a release would upload, without touching the registry:
 
