@@ -1,3 +1,4 @@
+import log from 'loglevel';
 import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
@@ -5,12 +6,14 @@ import { fileURLToPath } from 'node:url';
 
 import { sessions } from '../context/session';
 import { startMockerFromConfig } from '../config/startMockerFromConfig';
-import { definePlugin } from './definePlugin';
-import { addPluginSystemHandlers, mergeSystemHandlers } from './mergeSystemHandlers';
+import { definePlugin } from '../plugin/definePlugin';
+import { SystemApiError } from '../plugin/SystemApiError';
+import { createPluginHost } from './createPluginHost';
+import { addPluginSystemHandlers, mergeSystemHandlers } from './systemRoutes';
 import { resolvePlugins } from './resolvePlugins';
 
 import type { ResolvedMockerConfig } from '../config/types';
-import type { MocksmithPlugin } from './types';
+import type { MocksmithPlugin } from '../plugin/types';
 
 const fixturesDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -200,6 +203,62 @@ describe('plugin lifecycle', () => {
 
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ down: true });
+
+    await close();
+  });
+});
+
+describe('what a plugin contributes', () => {
+  test('keeps the first claim on a path and says so', async () => {
+    const warn = vi.spyOn(log, 'warn').mockImplementation(() => undefined);
+    const sse = { path: '/sse/feed', handler: () => undefined };
+
+    const first = definePlugin({
+      name: 'first',
+      setup(ctx) {
+        ctx.addHandlers({ '/api/thing': { response: { body: { from: 'first' } } } });
+        ctx.addSseHandlers([sse]);
+      },
+    });
+    const second = definePlugin({
+      name: 'second',
+      setup(ctx) {
+        ctx.addHandlers({ '/api/thing': { response: { body: { from: 'second' } } } });
+        ctx.addSseHandlers([{ path: '/sse/feed', handler: () => undefined }]);
+      },
+    });
+
+    const host = createPluginHost([first, second], resolvedFor({}), {});
+    const registries = await host.callSetup({ handlers: {}, sseHandlers: [], websockets: [] });
+
+    expect(registries.handlers['/api/thing']).toEqual({ response: { body: { from: 'first' } } });
+    // The shadowed handler is dropped rather than registered twice.
+    expect(registries.sseHandlers).toEqual([sse]);
+
+    const said = warn.mock.calls.flat().join(' ');
+
+    expect(said).toContain('/api/thing');
+    expect(said).toContain('/sse/feed');
+
+    warn.mockRestore();
+    await host.dispose();
+  });
+
+  test('callSystemApi throws when the route answers 4xx', async () => {
+    let failure: unknown;
+
+    const plugin = definePlugin({
+      name: 'asks-for-a-missing-session',
+      async serverStarted(ctx) {
+        failure = await ctx.callSystemApi('getSession', { id: 'no-such-session' }).catch((e) => e);
+      },
+    });
+
+    const { close } = await startWith([plugin]);
+
+    expect(failure).toBeInstanceOf(SystemApiError);
+    expect((failure as SystemApiError).status).toBe(404);
+    expect((failure as SystemApiError).endpoint).toContain('getSession');
 
     await close();
   });

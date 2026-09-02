@@ -1,3 +1,5 @@
+import { SystemApiError } from '../plugin/SystemApiError';
+
 import type { MockContext } from '../context/context';
 import type { MockData, MockFunction } from '../types';
 
@@ -12,6 +14,11 @@ export type SystemApiCaller = <T = unknown>(
  * Invokes a system route in-process, without going through HTTP. Plugins use
  * this to reuse the very same operations the CLI drives over the network
  * (`setOverride`, `patchSession`, …) instead of reimplementing them.
+ *
+ * A non-2xx answer throws `SystemApiError`, which carries the status and the
+ * body. The HTTP transport lets a caller check `response.ok`; in-process there
+ * is nothing to check, so silence would be the only report of a typo in a
+ * session id.
  * */
 export const createSystemApiCaller = (
   getHandlers: () => Record<string, MockFunction>,
@@ -41,6 +48,13 @@ export const createSystemApiCaller = (
       () => false
     );
 
-    return (result as MockData | undefined)?.response?.body as T;
+    const response = (result as MockData | undefined)?.response;
+    const status = response?.status ?? 200;
+
+    if (status >= 400) {
+      throw new SystemApiError(path, status, response?.body);
+    }
+
+    return response?.body as T;
   };
 };

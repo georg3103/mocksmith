@@ -8,7 +8,7 @@ import { MockContext } from './context/context';
 import { sessions, SYSTEM_SESSION_ID } from './context/session';
 import { createWebSocketServer, CreateWebSocketServerOptions } from './createWebSocketServer';
 import { DEFAULT_MOCK_BACKEND_PORT, getMockEnv } from './env';
-import { mergeSystemHandlers } from './plugin/mergeSystemHandlers';
+import { mergeSystemHandlers } from './pluginHost/systemRoutes';
 import { requestHandler } from './proxyHandlers/requestHandler';
 import { systemHandlers } from './systemHandlers';
 

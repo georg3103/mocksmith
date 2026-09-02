@@ -8,9 +8,9 @@ import { sessions } from '../context/session';
 import { DEFAULT_MOCK_BACKEND_PORT, getMockEnv } from '../env';
 import { createMockServer } from '../createMockServer';
 import { createRawSocketServer } from '../createRawSocketServer';
-import { createPluginHost } from '../plugin/createPluginHost';
-import { mergeSystemHandlers } from '../plugin/mergeSystemHandlers';
-import { resolvePlugins } from '../plugin/resolvePlugins';
+import { createPluginHost } from '../pluginHost/createPluginHost';
+import { mergeSystemHandlers } from '../pluginHost/systemRoutes';
+import { resolvePlugins } from '../pluginHost/resolvePlugins';
 import { systemHandlers } from '../systemHandlers';
 import { setWebsocketMessageEncoder, type WebsocketMessageEncoder } from '../websocketEncoder';
 import { loadConfigResource } from './loadConfigResource';
@@ -71,9 +71,9 @@ export const startMockerFromConfig = async (
 
   warnOnSecondStart();
 
-  const host_ = createPluginHost(await resolvePlugins(resolved, options), resolved, options);
+  const pluginHost = createPluginHost(await resolvePlugins(resolved, options), resolved, options);
 
-  await host_.callConfig();
+  await pluginHost.callConfig();
 
   const handlerSources = await Promise.all(
     config.handlers.map((resource, index) =>
@@ -128,7 +128,7 @@ export const startMockerFromConfig = async (
 
   setWebsocketMessageEncoder(encodeMessage);
 
-  const registries = await host_.callSetup({
+  const registries = await pluginHost.callSetup({
     handlers,
     sseHandlers: [...(sseHandlers ?? [])],
     websockets: [...(websockets ?? [])],
@@ -138,7 +138,7 @@ export const startMockerFromConfig = async (
     registries.systemHandlers
   );
 
-  host_.setSystemHandlerTable(allSystemHandlers);
+  pluginHost.setSystemHandlerTable(allSystemHandlers);
 
   if (Object.keys(registries.sessionDataPatch).length) {
     merge(defaultSessionData, registries.sessionDataPatch);
@@ -202,10 +202,10 @@ export const startMockerFromConfig = async (
     await once(mockServer, 'listening');
   }
 
-  await host_.callServerStarted(mockServer, { host, port, protocol });
+  await pluginHost.callServerStarted(mockServer, { host, port, protocol });
 
   mockServer.once('close', () => {
-    void host_.dispose();
+    void pluginHost.dispose();
   });
 
   if (rawSocketsEnabled && config.rawSockets) {

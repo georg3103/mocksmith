@@ -62,12 +62,14 @@ export const registerPluginCommands = (
 
   for (const plugin of plugins) {
     for (const spec of plugin.cli ?? []) {
+      // A command is addressed by name, so a clash cannot be resolved by
+      // picking a winner: the loser's command would simply not exist, and the
+      // user would read "unknown command" as a plugin that failed to load.
       if (program.commands.some((command) => command.name() === spec.name)) {
-        ctx.log.warn(
-          `[mocksmith:${plugin.name}] the CLI command "${spec.name}" is already taken — skipping it`
+        throw new Error(
+          `Plugin "${plugin.name}" declares the CLI command "${spec.name}", which is already ` +
+            'taken. Rename the command, or drop the plugin from the config.'
         );
-
-        continue;
       }
 
       attach(program, spec, ctx);

@@ -90,19 +90,24 @@ describe('CLI command tree', () => {
     expect(defaults).toEqual([{ name: 'demo', subcommand: 'run', known: ['run', 'list', 'help'] }]);
   });
 
-  test('refuses a plugin command that collides with a built-in one', () => {
+  /**
+   * Skipping the command quietly used to be the behaviour, and it produced the
+   * worst possible symptom: `mocksmith session …` still worked, the plugin's
+   * own command was simply absent, and "unknown command" read as a plugin that
+   * had failed to load.
+   * */
+  test('refuses to start when a plugin command collides with a built-in one', () => {
     const program = createProgram(buildContext());
-    const warnings: unknown[] = [];
     const ctx = buildContext();
 
-    registerPluginCommands(program, [{ name: 'clash', cli: [{ name: 'session' }] }], {
-      ...ctx,
-      getBaseUrl: ctx.getBaseUrl,
-      loadModule: (async () => ({})) as never,
-      log: { ...silentLogger, warn: (...args: unknown[]) => warnings.push(args) },
-    });
+    expect(() =>
+      registerPluginCommands(program, [{ name: 'clash', cli: [{ name: 'session' }] }], {
+        ...ctx,
+        getBaseUrl: ctx.getBaseUrl,
+        loadModule: (async () => ({})) as never,
+      })
+    ).toThrow(/already taken/);
 
-    expect(warnings).toHaveLength(1);
     expect(describeTree(program).filter((name) => name === 'session')).toHaveLength(1);
   });
 

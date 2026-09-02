@@ -39,6 +39,16 @@ export type PluginConfigEnv = {
   options: StartMockerOptions;
 };
 
+/**
+ * A handler for a system route contributed by a plugin.
+ *
+ * The generics are `any` deliberately: the plugin knows the shape of its own
+ * request body and should be free to type it, which a bare `MockFunction` —
+ * pinned to the empty defaults — refused, forcing an `as never` cast at every
+ * call site.
+ * */
+export type PluginSystemHandler = MockFunction<any, any, any>;
+
 export type PluginSetupContext = {
   readonly config: MockerConfig;
   readonly configDirectory: string;
@@ -57,7 +67,7 @@ export type PluginSetupContext = {
    * Adds routes under /__mocks/api/. A key may be a bare name ('scenarios') or
    * a full path. Built-in routes cannot be replaced.
    * */
-  addSystemHandlers(handlers: Record<string, MockFunction>): void;
+  addSystemHandlers(handlers: Record<string, PluginSystemHandler>): void;
 
   addSseHandlers(handlers: SseHandler[]): void;
   addWebsocketHandlers(handlers: MockerWebsocketHandler[]): void;

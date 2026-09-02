@@ -1,8 +1,13 @@
+/**
+ * `mocksmith/plugin` — everything a plugin author needs, and nothing else.
+ *
+ * The host that loads and drives plugins lives in `src/pluginHost` and is not
+ * exported: it used to be re-exported from here, which made every internal of
+ * the runtime part of the public surface even though its only callers import it
+ * by path.
+ * */
 export { definePlugin } from './definePlugin';
-export { createPluginHost, type PluginHost, type PluginRegistries } from './createPluginHost';
-export { addPluginSystemHandlers, mergeSystemHandlers } from './mergeSystemHandlers';
-export { resolvePlugins } from './resolvePlugins';
-export { createSystemApiCaller, type SystemApiCaller } from './systemApi';
+export { SystemApiError } from './SystemApiError';
 
 export {
   PLUGIN_API_VERSION,
@@ -19,5 +24,6 @@ export {
   type PluginServerContext,
   type PluginSessionContext,
   type PluginSetupContext,
+  type PluginSystemHandler,
   type SessionsFacade,
 } from './types';

@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url';
 
 import { loadMockerConfig } from '../config/loadMockerConfig';
 import { getMockEnv } from '../env';
-import { resolvePlugins } from '../plugin/resolvePlugins';
+import { resolvePlugins } from '../pluginHost/resolvePlugins';
 import { importModule } from '../utils/importModule';
 import { createCliContext } from './context';
 import { createProgram } from './createProgram';

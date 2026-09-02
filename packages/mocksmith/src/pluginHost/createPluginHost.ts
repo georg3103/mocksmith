@@ -2,9 +2,9 @@ import log from 'loglevel';
 import merge from 'lodash.merge';
 import { pathToFileURL } from 'node:url';
 
-import { sessions } from '../context/session';
+import { sessions, SYSTEM_SESSION_ID } from '../context/session';
 import { importModule } from '../utils/importModule';
-import { addPluginSystemHandlers } from './mergeSystemHandlers';
+import { addPluginSystemHandlers } from './systemRoutes';
 import { createSystemApiCaller } from './systemApi';
 
 import type { Server as HttpServer } from 'node:http';
@@ -18,7 +18,7 @@ import type {
   PluginSetupContext,
   SessionsFacade,
   StartMockerOptionsLike,
-} from './types';
+} from '../plugin/types';
 
 /**
  * The mutable registries plugins contribute to during `setup`, handed to
@@ -74,7 +74,7 @@ export const createPluginHost = (
 
   const callSystemApi = createSystemApiCaller(
     () => systemHandlerTable,
-    () => sessions.getById('system') ?? sessions.getDefaultSession()
+    () => sessions.getById(SYSTEM_SESSION_ID) ?? sessions.getDefaultSession()
   );
 
   const contextFor = (plugin: MocksmithPlugin): PluginSetupContext => {
@@ -85,15 +85,41 @@ export const createPluginHost = (
       stores.set(plugin.name, store);
     }
 
+    const logger = prefixed(plugin.name);
+
+    /**
+     * How a clash is reported, in one place. A system route or a CLI command is
+     * addressed by name, so two claimants are a mistake to fail on; a mock, sse
+     * or websocket path merely shadows, so the first registration stands and the
+     * loser is told. Silence was the old behaviour for the last three, and it
+     * made a plugin whose handler never ran look like a plugin that never
+     * loaded.
+     * */
+    const warnShadowed = (kind: string, taken: string[]) => {
+      if (taken.length) {
+        logger.warn(
+          `${kind} already registered, keeping the existing one: ${taken.join(', ')}` +
+            (kind === 'handler(s)' ? ' — pass { override: true } to win' : '')
+        );
+      }
+    };
+
     return {
       config: resolved.config,
       configDirectory: resolved.configDirectory,
       configPath: resolved.configPath,
       serverUrl: resolved.serverUrl,
       options,
-      logger: prefixed(plugin.name),
+      logger,
 
       addHandlers(handlers, opts) {
+        if (!opts?.override) {
+          warnShadowed(
+            'handler(s)',
+            Object.keys(handlers).filter((key) => key in registries.handlers)
+          );
+        }
+
         registries.handlers = opts?.override
           ? Object.assign(registries.handlers, handlers)
           : Object.assign({}, handlers, registries.handlers);
@@ -102,10 +128,19 @@ export const createPluginHost = (
         registries.systemHandlers = addPluginSystemHandlers(registries.systemHandlers, handlers);
       },
       addSseHandlers(handlers) {
-        registries.sseHandlers.push(...handlers);
+        const taken = new Set(registries.sseHandlers.map(({ path }) => path));
+
+        warnShadowed('sse path(s)', handlers.filter(({ path }) => taken.has(path)).map(({ path }) => path));
+        registries.sseHandlers.push(...handlers.filter(({ path }) => !taken.has(path)));
       },
       addWebsocketHandlers(handlers) {
-        registries.websockets.push(...handlers);
+        const taken = new Set(registries.websockets.map(({ path }) => path));
+
+        warnShadowed(
+          'websocket path(s)',
+          handlers.filter(({ path }) => taken.has(path)).map(({ path }) => path)
+        );
+        registries.websockets.push(...handlers.filter(({ path }) => !taken.has(path)));
       },
       patchDefaultSessionData(patch) {
         merge(registries.sessionDataPatch, patch);
