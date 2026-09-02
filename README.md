@@ -1,18 +1,74 @@
-# mocksmith
+<div align="center">
 
-A session-aware mock server for front-end development and end-to-end tests.
+# 🔨 mocksmith
 
-One server speaks **HTTP/HTTPS, WebSocket, raw TCP/TLS and SSE**, keeps an
-isolated data session per browser or per test, and can be reshaped at runtime —
-patch the data, break an endpoint, apply a scenario, push a websocket event —
-without a restart.
+**One mock server for HTTP, WebSocket, raw TCP/TLS and SSE — one isolated
+session per browser or per test, reshaped while it runs.**
+
+[![CI](https://github.com/georg3103/mocksmith/actions/workflows/ci.yml/badge.svg)](https://github.com/georg3103/mocksmith/actions/workflows/ci.yml)
+[![status](https://img.shields.io/badge/status-pre--release-orange)](#status)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![node](https://img.shields.io/badge/node-%E2%89%A5%2020.19-brightgreen)](#requirements)
+[![module](https://img.shields.io/badge/module-ESM%20only-informational)](#requirements)
+[![types](https://img.shields.io/badge/types-included-3178c6)](#requirements)
+
+[Why](#why) · [Quick start](#quick-start) · [Compared to other tools](#compared-to-other-tools) ·
+[Docs](docs/how-it-works.md) · [Examples](#examples) · [Contributing](CONTRIBUTING.md)
+
+</div>
+
+<!--
+  Once the packages are on the registry, swap the status badge for these:
+  [![npm](https://img.shields.io/npm/v/mocksmith)](https://www.npmjs.com/package/mocksmith)
+  [![downloads](https://img.shields.io/npm/dm/mocksmith)](https://www.npmjs.com/package/mocksmith)
+-->
+
+![The Forge Board — the demo app, with HTTP, WebSocket and SSE all reporting live](docs/media/demo.png)
+
+<div align="center">
+  <sub>
+    <a href="examples/vite-app">The demo app</a>: every byte comes from mocksmith.
+    The list over HTTP, live updates over a websocket, progress over SSE — and a
+    log of what actually crossed the wire.
+  </sub>
+</div>
+
+## Reshape it while it runs
+
+```bash
+npx mocksmith start --config ./mocksmith.config.ts
+```
+
+Now, without restarting anything and without touching your source:
+
+```bash
+npx mocksmith session set user.plan '"free"'         # change the world
+npx mocksmith endpoint set /api/items --status 503   # break one endpoint
+npx mocksmith endpoint set /api/items --delay 2000   # make it slow
+npx mocksmith scenario apply "Degraded shop"         # apply a whole situation
+npx mocksmith session reset                          # put it all back
+```
+
+Every browser tab and every parallel test has its **own** copy of that world, so
+one test's 503 is invisible to the next.
+
+## Status
+
+Working, tested — 140 tests, three CI jobs, a browser suite driving a real app —
+and **not on npm yet**. Until the first release, install from a git checkout or
+from local tarballs:
+
+```bash
+git clone https://github.com/georg3103/mocksmith.git && cd mocksmith
+pnpm install && pnpm run build
+pnpm -r --filter './packages/*' pack --pack-destination /tmp/tarballs
+```
+
+After the first publish, this is all it takes:
 
 ```bash
 npm install --save-dev mocksmith
 ```
-
-> Not published to npm yet. Until then, install from a git checkout or local
-> tarballs (`pnpm -r pack`).
 
 ## Install what you use
 
@@ -81,14 +137,30 @@ npx mocksmith start --config ./mocksmith.config.ts
 curl http://127.0.0.1:3101/api/profile   # {"name":"Ada","plan":"pro"}
 ```
 
-Change it while it runs:
+From here the server is yours to reshape while it runs — `session set`,
+`endpoint set`, `scenario apply`, `reload`, `session reset`. Every one of those
+is a REST call underneath, so a test or a script can do the same thing without
+the CLI: see [Runtime API](#runtime-api).
 
-```bash
-npx mocksmith session set user.plan '"free"'
-npx mocksmith endpoint set /api/items --status 503 --delay 2000
-npx mocksmith endpoint clear --all
-npx mocksmith session reset
-```
+## Compared to other tools
+
+Different tools solve different halves of the problem. mocksmith is a **server**,
+so anything that can open a socket can talk to it, and the state lives in the
+server rather than in your test file.
+
+| | mocksmith | [MSW](https://mswjs.io) | [json-server](https://github.com/typicode/json-server) | [WireMock](https://wiremock.org) |
+| --- | --- | --- | --- | --- |
+| Runs as | a server | inside the app process | a server | a server (JVM) |
+| Transports | HTTP, WS, SSE, raw TCP/TLS | HTTP, WS | HTTP | HTTP |
+| Isolated state per test / per tab | built in, cookie- or token-bound | your test's own scope | one shared dataset | via scenario state |
+| Reshape a running server | CLI + REST API | from test code | edit the file | REST API |
+| Native (non-browser) clients | yes | no | yes | yes |
+| Language | TypeScript / Node | TypeScript / Node | Node | Java |
+
+Pick MSW when the app is the only client and you want interception with no
+server at all. Pick mocksmith when several clients — a browser, a native app, a
+websocket, a parallel Playwright worker — must see one consistent, isolated,
+reshapeable world.
 
 ## Handlers
 
@@ -287,19 +359,38 @@ lifecycle. See [docs/plugins.md](docs/plugins.md).
 
 ## Examples
 
+Start with the demo — it is the picture at the top of this page, running:
+
+```bash
+git clone https://github.com/georg3103/mocksmith.git && cd mocksmith
+pnpm install && pnpm run build
+cd examples/vite-app && pnpm dev
+```
+
+- [`examples/vite-app`](examples/vite-app) — **The Forge Board**, a React todo
+  app served entirely by mocksmith. One command starts the app and the mocks;
+  the list travels over HTTP, live updates over a websocket, progress over SSE,
+  and the page logs every frame it receives. Scenarios change what it shows;
+  Playwright drives it in a real browser.
 - [`examples/basic`](examples/basic) — HTTP, websockets, SSE and scenarios, with
   a smoke script that exercises them end to end.
 - [`examples/core-only`](examples/core-only) — the core alone, asserting that the
   companion packages are genuinely absent while the server still works.
-- [`examples/vite-app`](examples/vite-app) — **The Forge Board**, a React todo
-  app served entirely by mocksmith: the list over HTTP, live updates over a
-  websocket, progress over SSE, with all three reporting their state on the
-  page. One command starts the app and the mocks; scenarios change what the
-  page shows; Playwright drives it in a real browser.
+
+## Documentation
+
+- [**How it works**](docs/how-it-works.md) — the model, the request path step by
+  step, sessions, overrides, transports, the system API, the plugin system, the
+  workspace and the release. Written to be read start to finish.
+- [Writing a plugin](docs/plugins.md) — the hooks, the system routes, the CLI
+  commands a plugin can contribute.
+- [Contributing](CONTRIBUTING.md) — how commit messages decide the next version.
 
 ## Requirements
 
-Node.js 20.19 or newer. ESM only.
+Node.js 20.19 or newer. ESM only, TypeScript types included. Configs, handlers
+and scenarios can be written in TypeScript with no loader registration —
+`jiti` handles that.
 
 ## Provenance
 
