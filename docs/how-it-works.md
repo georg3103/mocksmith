@@ -1106,6 +1106,17 @@ loudly at load time rather than failing obscurely later.
 creation; everything it typically needs (`setOverride`, `patchApiData`) is
 synchronous anyway.
 
+### Two halves, two directories
+
+`packages/mocksmith/src/plugin` is the public API — `definePlugin`,
+`SystemApiError`, the types — and is exactly what `mocksmith/plugin` exports.
+The runtime that loads plugins and drives their hooks lives next door in
+`src/pluginHost` and is internal.
+
+They used to share one directory and one entry, so `createPluginHost`,
+`resolvePlugins` and the route mergers were public API by accident: exported to
+plugin authors who never call them, and therefore frozen.
+
 ### The setup context
 
 ```ts
@@ -1125,20 +1136,34 @@ ctx.onClose(fn)
 
 `callSystemApi` is the reason one implementation serves three transports: the
 scenarios plugin applies a scenario from the server, the CLI and a Playwright
-test with the same code.
+test with the same code. It returns the response body and throws
+`SystemApiError` (carrying `status` and `body`) on 4xx or 5xx — over HTTP the
+caller checks `response.ok`, and in process there would otherwise be nothing to
+check.
 
-### System route rules
+### When two plugins want the same thing
 
-Enforced in `plugin/mergeSystemHandlers.ts`:
+One rule covers all four cases: **what a user addresses by name refuses to be
+claimed twice; what merely shadows keeps the first registration and warns.**
 
-- a plugin **cannot replace a built-in route** — the system API is a protocol
-  with independent clients;
-- **two plugins cannot claim the same route** — the winner would depend on
-  plugin order, which is the kind of bug that only reproduces on someone else's
-  machine.
+| Contribution | Clash with a built-in | Clash with another plugin |
+| --- | --- | --- |
+| system route | error at startup | error at startup |
+| CLI command | error at startup | error at startup |
+| mock handler | the config wins, warning | the first wins, warning |
+| sse / websocket path | — | the first wins, warning |
 
-Keys may be bare names (`greetings`) or full paths, and routes are matched with
-the same matcher the mocks use, so `/__mocks/api/greetings/:id` works.
+The reasoning is about the symptom. A name is how the thing is reached, so a
+silent winner leaves the user with `unknown command` and no way to tell which
+plugin swallowed it — `pluginHost/systemRoutes.ts` and
+`cli/registerPluginCommands.ts` both fail loudly instead. A handler path still
+answers either way, so naming the loser in the log is enough;
+`addHandlers(handlers, { override: true })` is the way to mean it.
+
+System route keys may be bare names (`greetings`) or full paths, and routes are
+matched with the same matcher the mocks use, so `/__mocks/api/greetings/:id`
+works. Type your handler with `PluginSystemHandler` — a bare `MockFunction` is
+pinned to the empty defaults and forces a cast.
 
 ### CLI commands as data
 
@@ -1177,7 +1202,7 @@ from its own manifest:
 The value is an **export subpath**, and the loader builds
 `@mocksmith/scenarios/plugin` from it. Importing the package root instead lands
 on a module that exports no plugin — that was a real bug, and
-`plugin/discovery.test.ts` now pins the behaviour.
+`pluginHost/discovery.test.ts` now pins the behaviour.
 
 ### Rules of thumb
 
@@ -1309,8 +1334,8 @@ Options: `include` / `exclude` globs, `dir` shorthand, inline `scenarios`, and
 - **`setup`** globs `**/*.scenario.{ts,mts,cts,js,mjs,cjs}` relative to the
   config (ignoring `node_modules` and `dist`), loads each file, and registers it
   under `scenario.name` or a name derived from the filename. Inline scenarios are
-  registered too. The registry is kept in the factory closure and also published
-  to `ctx.store`.
+  registered too. The registry is kept in the factory closure, so two servers in
+  one process never share one.
 - **System routes**: `scenarios` (the catalogue), `applyScenario`,
   `clearScenario`.
 - **`sessionCreated`** applies the `default` scenario straight to the context —
@@ -1322,6 +1347,14 @@ Applying a scenario means: clear existing overrides, deep-merge
 `setOverride` for each endpoint. `endpointsToRules` groups endpoints by path so
 several rules on one path become an ordered rule list. A deprecated
 single-`response` alias is normalised into the modern shape.
+
+That reading happens once. `scenario/toOperations.ts` turns a scenario into an
+ordered list of steps — `clearOverrides`, `patchSession`, `setOverride` — and
+two thin executors run them: `applyOverApi.ts` sends each step to the system API
+(CLI, fixture, plugin), `applyOnContext.ts` calls the equivalent method on a
+`MockContext` for the synchronous `sessionCreated` hook. The two used to be
+separate implementations and had already drifted: only one grouped endpoints by
+path, and they patched flags by different routes.
 
 Unless `reload: false`, the CLI then asks the app to reload.
 
@@ -1531,6 +1564,25 @@ mocksmith/
 └── .github/workflows/{ci,release}.yml
 ```
 
+Inside a package, the root of `src` holds entry points only, each named after
+the subpath it serves, and the implementation sits in a directory named after
+the concept:
+
+```
+packages/scenarios/src/
+├── index.ts            → `@mocksmith/scenarios`
+├── plugin.ts           → `@mocksmith/scenarios/plugin`
+├── playwright.ts       → `@mocksmith/scenarios/playwright`
+├── scenario/           the scenario itself: types, define*, validation, toOperations, the two executors
+├── catalogue/          finding, loading and registering scenario files
+├── server/             the plugin factory and its system routes
+├── cli/                the `scenario` command group
+└── testing/            what the playwright entry exports
+```
+
+`playwright.ts` reads oddly only when it sits among domain modules; as a
+three-line entry beside `index.ts` it says what it is, the way `msw/node` does.
+
 **pnpm, not npm.** pnpm's strict `node_modules` means a package sees only what
 it declares. Under npm's hoisting the isolation checks would pass for the wrong
 reason — `core-only` would "accidentally" see the scenarios package hoisted from
@@ -1613,7 +1665,7 @@ failing on it — repeat the command with a fresh code until every package is up
 
 ## 16. How this is tested
 
-140 tests across 26 files, plus three CI jobs. The interesting part is what each
+148 tests across 29 files, plus three CI jobs. The interesting part is what each
 layer is meant to catch.
 
 | Test | Guards |
@@ -1623,7 +1675,8 @@ layer is meant to catch.
 | `config/configRoundTrip.test.ts` | the config parser silently dropping a field |
 | `config/portResolution.test.ts` | the `--port ?? config ?? env ?? default` chain, including `MOCKSMITH_PORT=0` |
 | `cli/createProgram.test.ts` | the command tree, as a snapshot |
-| `plugin/discovery.test.ts` | auto-discovery instantiating the declared subpath |
+| `pluginHost/discovery.test.ts` | auto-discovery instantiating the declared subpath |
+| `plugin/publicApi.test.ts` | the export list of `mocksmith/plugin`, so the runtime cannot leak back in |
 | `websocketEncoder.test.ts` | JSON leaving as a **text** frame |
 | `socketsIntegration.test.ts` | raw TCP, TLS and WebSocket driven from a config by real `net` / `tls` / `ws` clients |
 

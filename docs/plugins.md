@@ -97,6 +97,23 @@ await ctx.callSystemApi('setOverride', {
 });
 ```
 
+It returns the response body, and **throws `SystemApiError` on 4xx and 5xx**,
+carrying `status` and `body`. Over HTTP a caller checks `response.ok`; in
+process there is nothing to check, so a wrong session id would otherwise be
+reported by nothing at all:
+
+```ts
+import { SystemApiError } from 'mocksmith/plugin';
+
+try {
+  await ctx.callSystemApi('patchSession', { id, patch });
+} catch (error) {
+  if (error instanceof SystemApiError && error.status === 404) {
+    ctx.logger.warn(`session ${id} is gone`);
+  }
+}
+```
+
 ### sessionCreated is synchronous
 
 It runs on the hot path of session creation, so it must not block; everything it
@@ -107,15 +124,37 @@ session creation.
 ## System routes
 
 `addSystemHandlers` takes bare names (`greetings`) or full paths
-(`/__mocks/api/greetings`). Two rules are enforced at startup:
+(`/__mocks/api/greetings`). Type your own request body with
+`PluginSystemHandler`:
 
-- a plugin cannot replace a built-in route — the system API is the protocol the
-  CLI and the fixtures speak;
-- two plugins cannot claim the same route, since which one won would depend on
-  plugin order.
+```ts
+import type { PluginSystemHandler } from 'mocksmith/plugin';
+
+const listGreetings: PluginSystemHandler = (_api, { requestData }) => ({
+  response: { body: { greetings: seen(requestData.body as { who?: string }) } },
+});
+```
 
 Routes are matched with the same path matcher the mocks use, so patterns like
 `/__mocks/api/greetings/:id` work.
+
+## What happens when two plugins want the same thing
+
+The rule is one sentence: **what is addressed by name refuses to be claimed
+twice; what merely shadows keeps the first registration and says so.**
+
+| Contribution | Clash with a built-in | Clash with another plugin |
+| --- | --- | --- |
+| system route | error at startup | error at startup |
+| CLI command | error at startup | error at startup |
+| mock handler | the config wins, warning | the first wins, warning |
+| sse / websocket path | — | the first wins, warning |
+
+A name is how a user reaches the thing, so a silent winner would leave them with
+"unknown command" and no clue which plugin ate it. A handler path is different:
+the server still answers, so a warning naming the loser is enough — and
+`addHandlers(handlers, { override: true })` is there when your plugin means to
+take over.
 
 ## CLI commands
 
@@ -168,6 +207,19 @@ Even then a package is only considered when it opts in from its `package.json`:
 ```jsonc
 { "mocksmith": { "plugin": "./dist/plugin.js" } }
 ```
+
+## Where the code lives
+
+If you are reading the plugin machinery itself rather than writing a plugin:
+
+| Path | What is there |
+| --- | --- |
+| `packages/mocksmith/src/plugin` | the public API — `definePlugin`, `SystemApiError`, the types. This directory *is* `mocksmith/plugin`. |
+| `packages/mocksmith/src/pluginHost` | the runtime that loads plugins and drives their hooks. Internal: nothing here is exported. |
+
+The split is deliberate. The host used to be re-exported from the public entry,
+which made every internal of the runtime part of the contract even though its
+only callers are three files in the core.
 
 ## Rules of thumb
 
